@@ -14,13 +14,8 @@
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.25));
 }
 
-#screen-pet.hidden {
-  display: none;
-}
-
-#screen-pet.dragging {
-  cursor: grabbing;
-}
+#screen-pet.hidden { display: none; }
+#screen-pet.dragging { cursor: grabbing; }
 
 #screen-pet .pet-inner {
   width: 100%;
@@ -55,7 +50,6 @@
   opacity: 0;
   transition: opacity 0.2s, transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-
 .pet-thought::after {
   content: "";
   position: absolute;
@@ -66,14 +60,10 @@
   height: 8px;
   background: #fff;
 }
-
 .pet-thought.show {
   opacity: 1;
   transform: translateX(-50%) scale(1);
 }
-
-/* scaleX(-1)이 걸려도 텍스트는 뒤집히지 않게 보정하기 어려우니
-   말풍선은 inner가 아닌 펫 전체에 기준해서 위치 */
 
 /* ============ 꼬리 흔들기 ============ */
 .pet-tail {
@@ -95,6 +85,29 @@
 @keyframes tail-jump {
   0%, 100% { transform: rotate(10deg); }
   50%      { transform: rotate(-20deg); }
+}
+
+/* 강아지는 꼬리 더 빨리 살랑살랑 */
+#screen-pet[data-pet="dog"] .pet-tail {
+  animation-duration: 0.7s;
+}
+#screen-pet[data-pet="dog"][data-state="running"] .pet-tail,
+#screen-pet[data-pet="dog"][data-state="chasing"] .pet-tail {
+  animation-duration: 0.3s;
+}
+
+/* 햄스터는 꼬리가 안 움직이고, 대신 몸이 조금씩 떨림 */
+#screen-pet[data-pet="hamster"] .pet-tail {
+  animation: none;
+  transform-origin: 22px 54px;
+}
+#screen-pet[data-pet="hamster"][data-state="idle"] .pet-tail,
+#screen-pet[data-pet="hamster"][data-state="sitting"] .pet-tail {
+  animation: hamster-wiggle 0.5s ease-in-out infinite;
+}
+@keyframes hamster-wiggle {
+  0%, 100% { transform: rotate(-5deg); }
+  50%      { transform: rotate(5deg); }
 }
 
 /* ============ 눈 깜빡이기 ============ */
@@ -141,10 +154,18 @@
   0%, 100% { transform: translateY(0) rotate(-12deg); }
   50%      { transform: translateY(-3px) rotate(12deg); }
 }
-
 @keyframes leg-run {
   0%, 100% { transform: translateY(0) rotate(-25deg); }
   50%      { transform: translateY(-5px) rotate(25deg); }
+}
+
+/* 햄스터는 다리가 짧아서 움직임을 작게 */
+#screen-pet[data-pet="hamster"] .pet-leg {
+  animation-duration: 0.25s !important;
+}
+@keyframes leg-walk {
+  0%, 100% { transform: translateY(0) rotate(-12deg); }
+  50%      { transform: translateY(-3px) rotate(12deg); }
 }
 
 /* 점프 중 다리 모으기 */
@@ -164,23 +185,30 @@
 #screen-pet[data-state="chasing"] .pet-head {
   animation: body-bob 0.18s ease-in-out infinite;
 }
-
 @keyframes body-bob {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-1.5px); }
 }
 
-/* 앉아있을 때 살짝 숨쉬는 느낌 */
 #screen-pet[data-state="sitting"] .pet-body-shape,
 #screen-pet[data-state="idle"] .pet-body-shape {
   animation: breathe 2.5s ease-in-out infinite;
   transform-origin: center bottom;
   transform-box: fill-box;
 }
-
 @keyframes breathe {
   0%, 100% { transform: scale(1, 1); }
   50%      { transform: scale(1.02, 0.98); }
+}
+
+/* 햄스터는 좀 더 귀여운 숨쉬기 */
+#screen-pet[data-pet="hamster"][data-state="idle"] .pet-body-shape,
+#screen-pet[data-pet="hamster"][data-state="sitting"] .pet-body-shape {
+  animation: hamster-breathe 1.5s ease-in-out infinite;
+}
+@keyframes hamster-breathe {
+  0%, 100% { transform: scale(1, 1); }
+  50%      { transform: scale(1.04, 0.96); }
 }
 
 /* 잡혔을 때 허우적대기 */

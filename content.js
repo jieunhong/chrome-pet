@@ -2,53 +2,12 @@
   if (window.__screenPetLoaded) return;
   window.__screenPetLoaded = true;
 
-  // ============ 펫 DOM 생성 ============
-  const pet = document.createElement('div');
-  pet.id = 'screen-pet';
-  pet.innerHTML = `
-    <div class="pet-inner">
-      <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
-        <!-- 꼬리 -->
-        <path class="pet-tail" d="M18 52 Q6 48 10 32"
-              stroke="#c8663d" stroke-width="6" fill="none" stroke-linecap="round"/>
-        <!-- 몸통 -->
-        <ellipse class="pet-body-shape" cx="42" cy="52" rx="22" ry="16" fill="#e89072"/>
-        <!-- 다리들 -->
-        <rect class="pet-leg pet-leg-back-1" x="28" y="60" width="6" height="11" fill="#c8663d" rx="2"/>
-        <rect class="pet-leg pet-leg-back-2" x="36" y="60" width="6" height="11" fill="#b55432" rx="2"/>
-        <rect class="pet-leg pet-leg-front-1" x="48" y="60" width="6" height="11" fill="#c8663d" rx="2"/>
-        <rect class="pet-leg pet-leg-front-2" x="56" y="60" width="6" height="11" fill="#b55432" rx="2"/>
-        <!-- 머리 -->
-        <circle class="pet-head" cx="58" cy="38" r="14" fill="#e89072"/>
-        <!-- 귀 -->
-        <path d="M48 30 L50 20 L55 27 Z" fill="#c8663d"/>
-        <path d="M62 27 L66 19 L68 29 Z" fill="#c8663d"/>
-        <path d="M50 26 L51 22 L53 26 Z" fill="#ffc4a8"/>
-        <path d="M64 25 L65 22 L66 27 Z" fill="#ffc4a8"/>
-        <!-- 눈 -->
-        <ellipse class="pet-eye pet-eye-left" cx="54" cy="37" rx="1.8" ry="2.5" fill="#1a0e08"/>
-        <ellipse class="pet-eye pet-eye-right" cx="62" cy="37" rx="1.8" ry="2.5" fill="#1a0e08"/>
-        <circle cx="54.5" cy="36.3" r="0.6" fill="#fff"/>
-        <circle cx="62.5" cy="36.3" r="0.6" fill="#fff"/>
-        <!-- 코 -->
-        <path d="M57 41 L59 41 L58 42.5 Z" fill="#7a2d2d"/>
-        <!-- 입 -->
-        <path d="M58 42.5 Q56 44 55 43 M58 42.5 Q60 44 61 43"
-              stroke="#7a2d2d" stroke-width="0.8" fill="none" stroke-linecap="round"/>
-        <!-- 볼터치 -->
-        <circle cx="50" cy="42" r="2" fill="#ff9a9a" opacity="0.5"/>
-        <circle cx="66" cy="42" r="2" fill="#ff9a9a" opacity="0.5"/>
-      </svg>
-      <div class="pet-thought"></div>
-    </div>
-  `;
-  document.body.appendChild(pet);
-
-  // ============ 상태 변수 ============
+  // ============ 상태 변수 및 초기화 ============
   const PET_W = 80;
   const PET_H = 80;
   const GRAVITY = 0.6;
 
+  let currentPet = window.DEFAULT_PET || 'cat';
   let x = window.innerWidth - PET_W - 40;
   let y = window.innerHeight - PET_H - 10;
   let vx = 0;
@@ -64,16 +23,74 @@
   let dragOffsetY = 0;
   let lastMouseMoveTime = 0;
 
-  const groundY = () => window.innerHeight - PET_H - 10;
+  // ============ 펫 DOM 생성 ============
+  const pet = document.createElement('div');
+  pet.id = 'screen-pet';
 
-  // ============ 말풍선 ============
-  const thought = pet.querySelector('.pet-thought');
+  function buildPetHTML(petType) {
+    const svg = (window.PET_SVGS && window.PET_SVGS[petType]) || (window.PET_SVGS && window.PET_SVGS.cat) || '';
+    return `<div class="pet-inner">${svg}<div class="pet-thought"></div></div>`;
+  }
+
+  // 초기 펫 설정
+  pet.dataset.pet = currentPet;
+  pet.innerHTML = buildPetHTML(currentPet);
+  document.body.appendChild(pet);
+
+  let thought = pet.querySelector('.pet-thought');
+
+  function setPet(petType) {
+    if (!window.PET_SVGS || !window.PET_SVGS[petType]) return;
+    if (currentPet === petType && pet.dataset.pet === petType && pet.querySelector('.pet-inner')) {
+      // 이미 해당 펫이면 말풍선만 띄우기
+      showThought('안녕!');
+      return;
+    }
+
+    currentPet = petType;
+    pet.dataset.pet = petType;
+    pet.innerHTML = buildPetHTML(petType);
+    // 다시 참조 잡기
+    thought = pet.querySelector('.pet-thought');
+    showThought('안녕!');
+  }
+
+  // storage 에서 펫 타입 읽어오기 및 리스너 등록
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(['pet'], (result) => {
+      if (result.pet) {
+        setPet(result.pet);
+      }
+    });
+
+    // 팝업에서 storage 변경 시 실시간 반영
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.pet) {
+        setPet(changes.pet.newValue);
+      }
+    });
+  }
+
+  // 메시지 통신을 통한 실시간 반영 (fallback)
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message.type === 'CHANGE_PET' && message.petType) {
+        setPet(message.petType);
+      }
+    });
+  }
+
   const thoughts = ['냥~', '♡', '와~', '!', '쮸', '헷'];
   function showThought(text) {
+    if (!thought) return;
     thought.textContent = text || thoughts[Math.floor(Math.random() * thoughts.length)];
     thought.classList.add('show');
-    setTimeout(() => thought.classList.remove('show'), 1500);
+    setTimeout(() => {
+      if (thought) thought.classList.remove('show');
+    }, 1500);
   }
+
+  const groundY = () => window.innerHeight - PET_H - 10;
 
   // ============ 마우스 이벤트 ============
   document.addEventListener('mousemove', (e) => {
@@ -159,7 +176,6 @@
     stateTimer--;
 
     if (!isDragging) {
-      // 커서 추적: 커서가 하단에서 움직일 때 가까우면 쫓아감
       const cursorActive = Date.now() - lastMouseMoveTime < 800;
       const cursorLow = mouseY > window.innerHeight - 220;
       const cursorDist = mouseX - (x + PET_W / 2);
@@ -175,7 +191,6 @@
         stateTimer = 60;
       }
 
-      // 상태별 처리
       if (state === 'idle' || state === 'sitting') {
         vx = 0;
         if (stateTimer <= 0) chooseNextAction();
@@ -218,11 +233,9 @@
         }
       }
 
-      // 물리 적용
       x += vx;
       y += vy;
 
-      // 바닥에 고정 (점프/낙하 아닐 때)
       if (state !== 'jumping' && state !== 'falling' && state !== 'held') {
         if (y < groundY()) {
           vy += GRAVITY;
@@ -237,7 +250,6 @@
         }
       }
 
-      // 좌우 경계
       if (x < 0) {
         x = 0;
         vx = Math.abs(vx);
@@ -252,10 +264,9 @@
       }
     }
 
-    // DOM 업데이트
     pet.style.transform = `translate(${x}px, ${y}px)`;
     const inner = pet.querySelector('.pet-inner');
-    inner.style.transform = `scaleX(${facing})`;
+    if (inner) inner.style.transform = `scaleX(${facing})`;
     pet.dataset.state = state;
 
     requestAnimationFrame(update);
@@ -263,12 +274,10 @@
 
   update();
 
-  // 창 크기 변경 대응
   window.addEventListener('resize', () => {
     if (y > groundY()) y = groundY();
     if (x > window.innerWidth - PET_W) x = window.innerWidth - PET_W;
   });
 
-  // 처음 등장 인사
   setTimeout(() => showThought('안녕!'), 500);
 })();
