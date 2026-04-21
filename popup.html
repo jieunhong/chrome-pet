@@ -83,6 +83,51 @@
       opacity: 1;
       transform: scale(1);
     }
+    .name-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px dashed #d4b088;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .name-section label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #8a6a54;
+      margin-left: 2px;
+    }
+    .name-input-group {
+      display: flex;
+      gap: 6px;
+    }
+    #petNameInput {
+      flex: 1;
+      padding: 8px 12px;
+      border: 2px solid #e8c89a;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #5a3a28;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    #petNameInput:focus {
+      border-color: #e8936c;
+    }
+    #saveNameBtn {
+      padding: 0 12px;
+      background: #e8936c;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #saveNameBtn:hover {
+      background: #d87e56;
+    }
     .hint {
       margin: 14px 0 0 0;
       font-size: 11px;
@@ -95,6 +140,15 @@
 <body>
   <h1>🐾 펫 선택</h1>
   <div class="pet-grid" id="grid"></div>
+  
+  <div class="name-section">
+    <label for="petNameInput">펫 이름</label>
+    <div class="name-input-group">
+      <input type="text" id="petNameInput" placeholder="이름을 입력하세요" maxlength="10">
+      <button id="saveNameBtn">저장</button>
+    </div>
+  </div>
+
   <p class="hint">선택 즉시 모든 탭에 반영됩니다</p>
   <script src="pets.js"></script>
   <script src="popup.js"></script>

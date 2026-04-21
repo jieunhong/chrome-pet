@@ -42,10 +42,36 @@
     }
   }
 
+  const nameInput = document.getElementById('petNameInput');
+  const saveNameBtn = document.getElementById('saveNameBtn');
+
+  function savePetName() {
+    const name = nameInput.value.trim();
+    if (chrome && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ petName: name }, () => {
+        // 메시지로 이름 변경 알림
+        chrome.tabs.query({}, (tabs) => {
+          tabs.forEach((tab) => {
+            if (tab.id) {
+              chrome.tabs.sendMessage(tab.id, { type: 'CHANGE_NAME', name }).catch(() => { });
+            }
+          });
+        });
+        alert('이름이 저장되었습니다!');
+      });
+    }
+  }
+
+  saveNameBtn.addEventListener('click', savePetName);
+  nameInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') savePetName();
+  });
+
   // 저장된 값 불러와서 초기 렌더
   if (chrome && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet'], (result) => {
+    chrome.storage.local.get(['pet', 'petName'], (result) => {
       if (result.pet) currentPet = result.pet;
+      if (result.petName) nameInput.value = result.petName;
       renderCards();
     });
   } else {

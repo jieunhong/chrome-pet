@@ -8,6 +8,7 @@
   const GRAVITY = 0.6;
 
   let currentPet = window.DEFAULT_PET || 'cat';
+  let currentName = '';
   let x = window.innerWidth - PET_W - 40;
   let y = window.innerHeight - PET_H - 10;
   let vx = 0;
@@ -27,14 +28,15 @@
   const pet = document.createElement('div');
   pet.id = 'screen-pet';
 
-  function buildPetHTML(petType) {
+  function buildPetHTML(petType, name) {
     const svg = (window.PET_SVGS && window.PET_SVGS[petType]) || (window.PET_SVGS && window.PET_SVGS.cat) || '';
-    return `<div class="pet-inner">${svg}<div class="pet-thought"></div></div>`;
+    const nameLabel = name ? `<div class="pet-name">${name}</div>` : '';
+    return `<div class="pet-inner">${svg}<div class="pet-thought"></div>${nameLabel}</div>`;
   }
 
   // 초기 펫 설정
   pet.dataset.pet = currentPet;
-  pet.innerHTML = buildPetHTML(currentPet);
+  pet.innerHTML = buildPetHTML(currentPet, currentName);
   document.body.appendChild(pet);
 
   let thought = pet.querySelector('.pet-thought');
@@ -49,15 +51,26 @@
 
     currentPet = petType;
     pet.dataset.pet = petType;
-    pet.innerHTML = buildPetHTML(petType);
+    pet.innerHTML = buildPetHTML(petType, currentName);
     // 다시 참조 잡기
     thought = pet.querySelector('.pet-thought');
     showThought('안녕!');
   }
 
-  // storage 에서 펫 타입 읽어오기 및 리스너 등록
+  function setName(name) {
+    currentName = name;
+    pet.innerHTML = buildPetHTML(currentPet, currentName);
+    // 다시 참조 잡기
+    thought = pet.querySelector('.pet-thought');
+  }
+
+  // storage 에서 펫 타입 및 이름 읽어오기 및 리스너 등록
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet'], (result) => {
+    chrome.storage.local.get(['pet', 'petName'], (result) => {
+      if (result.petName) {
+        currentName = result.petName;
+        setName(currentName);
+      }
       if (result.pet) {
         setPet(result.pet);
       }
@@ -65,8 +78,9 @@
 
     // 팝업에서 storage 변경 시 실시간 반영
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'local' && changes.pet) {
-        setPet(changes.pet.newValue);
+      if (area === 'local') {
+        if (changes.pet) setPet(changes.pet.newValue);
+        if (changes.petName) setName(changes.petName.newValue);
       }
     });
   }
@@ -76,6 +90,8 @@
     chrome.runtime.onMessage.addListener((message) => {
       if (message.type === 'CHANGE_PET' && message.petType) {
         setPet(message.petType);
+      } else if (message.type === 'CHANGE_NAME') {
+        setName(message.name);
       }
     });
   }
@@ -90,7 +106,22 @@
     }, 1500);
   }
 
-  const groundY = () => window.innerHeight - PET_H - 10;
+  const groundY = () => window.innerHeight - PET_H - 28;
+
+  // ============ 인터랙션 추가 변수 ============
+  let mouseDownTime = 0;
+  let clickCount = 0;
+  let lastClickTime = 0;
+
+  function createHeart(cx, cy) {
+    const heart = document.createElement('div');
+    heart.className = 'pet-heart-particle';
+    heart.textContent = '❤️';
+    heart.style.left = `${cx}px`;
+    heart.style.top = `${cy}px`;
+    document.body.appendChild(heart);
+    setTimeout(() => heart.remove(), 1000);
+  }
 
   // ============ 마우스 이벤트 ============
   document.addEventListener('mousemove', (e) => {
@@ -102,12 +133,18 @@
       y = e.clientY - dragOffsetY;
       vx = 0;
       vy = 0;
+
+      // 드래그 중에도 쓰다듬기 효과 (속도가 빠르면)
+      if (Math.abs(e.movementX) + Math.abs(e.movementY) > 10) {
+        if (Math.random() < 0.1) createHeart(e.clientX, e.clientY);
+      }
     }
   }, { passive: true });
 
   pet.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
     isDragging = true;
+    mouseDownTime = Date.now();
     dragOffsetX = e.clientX - x;
     dragOffsetY = e.clientY - y;
     pet.classList.add('dragging');
@@ -116,21 +153,61 @@
     e.preventDefault();
   });
 
-  document.addEventListener('mouseup', () => {
+  document.addEventListener('mouseup', (e) => {
     if (isDragging) {
+      const duration = Date.now() - mouseDownTime;
       isDragging = false;
       pet.classList.remove('dragging');
-      state = 'falling';
-      vy = 0;
+
+      if (duration < 200) {
+        // 짧은 클릭 인터랙션
+        handlePetClick(e.clientX, e.clientY);
+      } else {
+        state = 'falling';
+        vy = 0;
+      }
     }
   });
 
+  function handlePetClick(cx, cy) {
+    clickCount++;
+    const now = Date.now();
+    if (now - lastClickTime > 1000) clickCount = 1;
+    lastClickTime = now;
+
+    createHeart(cx, cy);
+
+    if (clickCount >= 3) {
+      // 3번 연속 클릭: 댄스!
+      state = 'dancing';
+      stateTimer = 180;
+      showThought('♪~');
+      clickCount = 0;
+    } else {
+      // 일반 클릭: 랜덤 반응
+      const r = Math.random();
+      if (r < 0.3) {
+        state = 'shocked';
+        stateTimer = 40;
+        showThought('!!');
+      } else if (r < 0.6) {
+        state = 'jumping';
+        vy = -12;
+        vx = (Math.random() - 0.5) * 8;
+        showThought('헤헤');
+      } else {
+        showThought('쓰담쓰담');
+        pet.classList.add('petting');
+        setTimeout(() => pet.classList.remove('petting'), 1000);
+      }
+    }
+  }
+
   // 더블클릭: 반가워하며 점프
   pet.addEventListener('dblclick', (e) => {
-    state = 'jumping';
-    vy = -14;
-    vx = 0;
-    showThought('♡');
+    state = 'dancing';
+    stateTimer = 120;
+    showThought('♬');
     e.preventDefault();
   });
 
@@ -148,23 +225,27 @@
 
   function chooseNextAction() {
     const r = Math.random();
-    if (r < 0.35) {
+    if (r < 0.3) {
       state = 'walking';
       pickRandomTarget();
       stateTimer = 300;
-    } else if (r < 0.6) {
+    } else if (r < 0.5) {
       state = 'running';
       pickRandomTarget();
       stateTimer = 180;
-    } else if (r < 0.8) {
+    } else if (r < 0.7) {
       state = 'jumping';
       vy = -11 - Math.random() * 3;
       vx = (Math.random() - 0.5) * 6;
       stateTimer = 80;
       if (Math.random() < 0.3) showThought();
-    } else if (r < 0.92) {
+    } else if (r < 0.85) {
       state = 'sitting';
       stateTimer = 200 + Math.random() * 200;
+    } else if (r < 0.95) {
+      state = 'dancing';
+      stateTimer = 150;
+      showThought('♪');
     } else {
       state = 'idle';
       stateTimer = 100 + Math.random() * 100;
@@ -184,7 +265,7 @@
       if (
         cursorActive && cursorLow &&
         cursorAbsDist < 400 && cursorAbsDist > 30 &&
-        state !== 'jumping' && state !== 'falling'
+        ['jumping', 'falling', 'dancing', 'shocked'].indexOf(state) === -1
       ) {
         state = 'chasing';
         targetX = mouseX - PET_W / 2;
@@ -222,6 +303,12 @@
           vx = Math.sign(dx) * 5.5;
           facing = Math.sign(dx);
         }
+      } else if (state === 'dancing') {
+        vx = 0;
+        if (stateTimer <= 0) state = 'idle';
+      } else if (state === 'shocked') {
+        vx = 0;
+        if (stateTimer <= 0) state = 'idle';
       } else if (state === 'jumping' || state === 'falling') {
         vy += GRAVITY;
         if (y >= groundY() && vy > 0) {
@@ -236,7 +323,7 @@
       x += vx;
       y += vy;
 
-      if (state !== 'jumping' && state !== 'falling' && state !== 'held') {
+      if (['jumping', 'falling', 'held'].indexOf(state) === -1) {
         if (y < groundY()) {
           vy += GRAVITY;
           y += vy;
@@ -265,6 +352,11 @@
     }
 
     pet.style.transform = `translate(${x}px, ${y}px)`;
+    // CSS 애니메이션용 변수 주입
+    pet.style.setProperty('--x', `${x}px`);
+    pet.style.setProperty('--y', `${y}px`);
+    pet.style.setProperty('--facing', facing);
+
     const inner = pet.querySelector('.pet-inner');
     if (inner) inner.style.transform = `scaleX(${facing})`;
     pet.dataset.state = state;
