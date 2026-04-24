@@ -157,6 +157,7 @@
 
   function createZzz() {
     if (state !== 'sleeping') return;
+    if (pet.classList.contains('hidden')) return;
     const z = document.createElement('div');
     z.className = 'zzz-particle';
     z.textContent = 'Zzz';
