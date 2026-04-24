@@ -15,6 +15,58 @@
   overflow: visible;
 }
 
+/* ============ 펫 하우스 ============ */
+#pet-house {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 100px;
+  height: 100px;
+  z-index: 2147483646;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: auto;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.25));
+  transition: transform 0.18s ease-out;
+}
+
+#pet-house:hover {
+  transform: translateY(-3px);
+}
+
+#pet-house:active {
+  transform: translateY(-1px) scale(0.98);
+}
+
+#pet-house svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+/* 집 안에 있을 때 펫 처리 */
+#screen-pet.at-home {
+  cursor: default;
+  /* 집 출입구 안쪽 어두운 영역에 자연스럽게 보이도록 그림자 약화 */
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+  /* 클릭이 집까지 통과하도록 (집 토글이 펫 영역에서도 동작) */
+  pointer-events: none;
+}
+
+#screen-pet.at-home .pet-inner {
+  /* facing 방향은 유지하면서 작게 축소 */
+  transform: scaleX(var(--facing)) scale(0.55);
+  transform-origin: center center;
+  transition: transform 0.3s ease-out;
+}
+
+#screen-pet.at-home .pet-name,
+#screen-pet.at-home .pet-thought {
+  display: none;
+}
+
 #screen-pet.hidden {
   display: none;
 }

@@ -23,6 +23,19 @@
   let dragOffsetX = 0;
   let dragOffsetY = 0;
   let lastMouseMoveTime = 0;
+  let isAtHome = false;
+
+  // ============ 펫 하우스 ============
+  const HOUSE_W = 100;
+  const HOUSE_H = 100;
+  const HOUSE_MARGIN_RIGHT = 20;
+  const HOUSE_MARGIN_BOTTOM = 20;
+
+  const homeLeft = () => window.innerWidth - HOUSE_W - HOUSE_MARGIN_RIGHT;
+  const homeTop = () => window.innerHeight - HOUSE_H - HOUSE_MARGIN_BOTTOM;
+  // 펫이 집 출입구 안쪽에 살짝 보이게 하는 좌표
+  const petHomeX = () => homeLeft() + (HOUSE_W - PET_W) / 2;
+  const petHomeY = () => homeTop() + HOUSE_H - PET_H + 8;
 
   // ============ 펫 DOM 생성 ============
   const pet = document.createElement('div');
@@ -38,6 +51,13 @@
   pet.dataset.pet = currentPet;
   pet.innerHTML = buildPetHTML(currentPet, currentName);
   document.body.appendChild(pet);
+
+  // 펫 하우스 DOM
+  const house = document.createElement('div');
+  house.id = 'pet-house';
+  house.title = '펫 하우스 (클릭하여 펫을 안에 재우기)';
+  house.innerHTML = window.HOUSE_SVG || '';
+  document.body.appendChild(house);
 
   let thought = pet.querySelector('.pet-thought');
 
@@ -64,15 +84,47 @@
     thought = pet.querySelector('.pet-thought');
   }
 
+  function setAtHome(value) {
+    isAtHome = !!value;
+    if (isAtHome) {
+      pet.classList.add('at-home');
+      // 진행 중이던 드래그/말풍선 정리
+      isDragging = false;
+      pet.classList.remove('dragging');
+      if (thought) thought.classList.remove('show');
+      // 펫을 집 안으로 즉시 이동시키고 잠재우기
+      x = petHomeX();
+      y = petHomeY();
+      vx = 0;
+      vy = 0;
+      state = 'sleeping';
+      stateTimer = Number.POSITIVE_INFINITY;
+    } else {
+      pet.classList.remove('at-home');
+      // 집에서 막 깨어나서 일어선다
+      state = 'idle';
+      stateTimer = 60;
+      vx = 0;
+      vy = 0;
+      // 집 왼쪽 옆으로 살짝 빠져나오기
+      x = Math.max(20, homeLeft() - PET_W - 10);
+      y = groundY();
+      showThought('hi! 👋');
+    }
+  }
+
   // storage 에서 펫 타입 및 이름 읽어오기 및 리스너 등록
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet', 'petName'], (result) => {
+    chrome.storage.local.get(['pet', 'petName', 'atHome'], (result) => {
       if (result.petName) {
         currentName = result.petName;
         setName(currentName);
       }
       if (result.pet) {
         setPet(result.pet);
+      }
+      if (result.atHome) {
+        setAtHome(true);
       }
     });
 
@@ -81,6 +133,7 @@
       if (area === 'local') {
         if (changes.pet) setPet(changes.pet.newValue);
         if (changes.petName) setName(changes.petName.newValue);
+        if (changes.atHome) setAtHome(!!changes.atHome.newValue);
       }
     });
   }
@@ -186,6 +239,7 @@
   }, { passive: true });
 
   pet.addEventListener('mousedown', (e) => {
+    if (isAtHome) return;
     if (e.button !== 0) return;
     isDragging = true;
     mouseDownTime = Date.now();
@@ -195,6 +249,19 @@
     state = 'held';
     showThought('?!');
     e.preventDefault();
+  });
+
+  // 집 클릭으로 토글
+  house.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const next = !isAtHome;
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      // storage 에 쓰면 onChanged 리스너가 setAtHome 을 호출
+      chrome.storage.local.set({ atHome: next });
+    } else {
+      setAtHome(next);
+    }
   });
 
   document.addEventListener('mouseup', (e) => {
@@ -249,6 +316,7 @@
 
   // 더블클릭: 반가워하며 점프
   pet.addEventListener('dblclick', (e) => {
+    if (isAtHome) return;
     state = 'dancing';
     stateTimer = 120;
     showThought('♬');
@@ -257,6 +325,7 @@
 
   // 우클릭: 펫 숨기기/보이기
   pet.addEventListener('contextmenu', (e) => {
+    if (isAtHome) return;
     e.preventDefault();
     pet.classList.toggle('hidden');
   });
@@ -264,7 +333,9 @@
   // ============ 상태 전이 ============
   function pickRandomTarget() {
     const margin = 40;
-    targetX = margin + Math.random() * (window.innerWidth - PET_W - margin * 2);
+    // 집 영역(우측 하단)을 가급적 피해서 배회한다
+    const safeMax = Math.max(margin + 50, homeLeft() - PET_W - 10);
+    targetX = margin + Math.random() * (safeMax - margin);
   }
 
   function chooseNextAction() {
@@ -303,6 +374,28 @@
   // ============ 메인 루프 ============
   function update() {
     stateTimer--;
+
+    if (isAtHome) {
+      // 집 안에서 가만히 자기. 창 크기 변경에도 위치 재고정.
+      x = petHomeX();
+      y = petHomeY();
+      vx = 0;
+      vy = 0;
+      state = 'sleeping';
+
+      if (Math.random() < 0.015) createZzz();
+
+      pet.style.transform = `translate(${x}px, ${y}px)`;
+      pet.style.setProperty('--x', `${x}px`);
+      pet.style.setProperty('--y', `${y}px`);
+      pet.style.setProperty('--facing', facing);
+      pet.dataset.state = 'sleeping';
+      const innerHome = pet.querySelector('.pet-inner');
+      if (innerHome) innerHome.style.transform = `scaleX(${facing}) scale(0.55)`;
+
+      requestAnimationFrame(update);
+      return;
+    }
 
     if (!isDragging) {
       const cursorActive = Date.now() - lastMouseMoveTime < 800;

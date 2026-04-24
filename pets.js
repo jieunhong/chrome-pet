@@ -154,8 +154,36 @@
     </svg>
   `;
 
+  const HOUSE = `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <!-- 바닥 그림자 -->
+      <ellipse cx="50" cy="94" rx="42" ry="3" fill="rgba(0,0,0,0.18)"/>
+      <!-- 본체 -->
+      <rect x="14" y="42" width="72" height="48" fill="#e8c090" stroke="#6a4a35" stroke-width="2" rx="3"/>
+      <!-- 본체 결 -->
+      <line x1="14" y1="60" x2="86" y2="60" stroke="#c89668" stroke-width="0.8" opacity="0.5"/>
+      <line x1="14" y1="76" x2="86" y2="76" stroke="#c89668" stroke-width="0.8" opacity="0.5"/>
+      <!-- 지붕 -->
+      <path d="M8 46 L50 12 L92 46 Z" fill="#7d5a44" stroke="#5a3a28" stroke-width="2" stroke-linejoin="round"/>
+      <!-- 지붕 하이라이트 -->
+      <path d="M14 44 L50 16 L86 44" fill="none" stroke="#9a7a60" stroke-width="1.2" opacity="0.6" stroke-linejoin="round"/>
+      <!-- 굴뚝 -->
+      <rect x="68" y="20" width="9" height="14" fill="#7d5a44" stroke="#5a3a28" stroke-width="1.5" rx="1"/>
+      <rect x="66" y="18" width="13" height="4" fill="#5a3a28" rx="1"/>
+      <!-- 출입구 (어두운 아치) -->
+      <path d="M30 90 L30 64 Q30 52 50 52 Q70 52 70 64 L70 90 Z" fill="#3a2a20"/>
+      <!-- 출입구 안쪽 테두리 -->
+      <path d="M32 90 L32 64 Q32 54 50 54 Q68 54 68 64 L68 90"
+            fill="none" stroke="#5a3a28" stroke-width="1.2"/>
+      <!-- 하트 장식 -->
+      <path d="M50 44 C48 41.5 44.5 41.5 44.5 45 C44.5 47.5 50 50.5 50 50.5 C50 50.5 55.5 47.5 55.5 45 C55.5 41.5 52 41.5 50 44 Z"
+            fill="#ec407a" opacity="0.85"/>
+    </svg>
+  `;
+
   global.PET_SVGS = { cat: CAT, dog: DOG, hamster: HAMSTER, dino: DINO };
   global.PET_NAMES = { cat: 'Ginger Cat', dog: 'Maltese', hamster: 'Hamster', dino: 'Dino' };
   global.PET_LIST = ['cat', 'dog', 'hamster', 'dino'];
   global.DEFAULT_PET = 'cat';
+  global.HOUSE_SVG = HOUSE;
 })(typeof window !== 'undefined' ? window : self);
