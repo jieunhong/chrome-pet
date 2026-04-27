@@ -9,13 +9,16 @@
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
-  will-change: transform;
+  /* 픽셀 깨짐(안티알리아싱 문제) 방지를 위해 하드웨어 가속 설정 및 will-change 제거 */
+  transform: translate(var(--x, 0), var(--y, 0)) translateZ(0);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
   transition: none;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.25));
   overflow: visible;
 }
 
-/* ============ 펫 하우스 ============ */
+/* ============ 펫 방석 ============ */
 #pet-house {
   position: fixed;
   right: 20px;
@@ -46,18 +49,18 @@
   overflow: visible;
 }
 
-/* 집 안에 있을 때 펫 처리 */
+/* 방석 위에 있을 때 펫 처리 */
 #screen-pet.at-home {
   cursor: default;
-  /* 집 출입구 안쪽 어두운 영역에 자연스럽게 보이도록 그림자 약화 */
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
-  /* 클릭이 집까지 통과하도록 (집 토글이 펫 영역에서도 동작) */
+  /* 방석 위에 있으므로 약간의 그림자 유지 */
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.3));
+  /* 클릭이 방석까지 통과하도록 */
   pointer-events: none;
 }
 
 #screen-pet.at-home .pet-inner {
-  /* facing 방향은 유지하면서 작게 축소 */
-  transform: scaleX(var(--facing)) scale(0.55);
+  /* 방석 크기에 맞춰 원본 사이즈(1.0) 유지 */
+  transform: scaleX(var(--facing)) scale(1.0);
   transform-origin: center center;
   transition: transform 0.3s ease-out;
 }
@@ -80,7 +83,10 @@
   height: 100%;
   transform-origin: center center;
   position: relative;
+  /* 방향 전환을 확실하게 하기 위해 scaleX 적용 */
   transform: scaleX(var(--facing));
+  /* SVG 렌더링 최적화 */
+  shape-rendering: geometricPrecision;
 }
 
 #screen-pet svg {
@@ -149,7 +155,7 @@
 /* ============ 꼬리 흔들기 ============ */
 .pet-tail {
   transform-origin: 18px 52px;
-  animation: tail-wag 1.4s ease-in-out infinite;
+  animation: tail-wag 2.5s ease-in-out infinite;
 }
 
 @keyframes tail-wag {
@@ -204,7 +210,7 @@
 
 #screen-pet[data-pet="hamster"][data-state="idle"] .pet-tail,
 #screen-pet[data-pet="hamster"][data-state="sitting"] .pet-tail {
-  animation: hamster-wiggle 0.5s ease-in-out infinite;
+  animation: hamster-wiggle 1.0s ease-in-out infinite;
 }
 
 @keyframes hamster-wiggle {
@@ -252,26 +258,26 @@
 
 #screen-pet[data-state="walking"] .pet-leg-back-1,
 #screen-pet[data-state="walking"] .pet-leg-front-1 {
-  animation: leg-walk 0.45s linear infinite;
+  animation: leg-walk 1.0s linear infinite;
 }
 
 #screen-pet[data-state="walking"] .pet-leg-back-2,
 #screen-pet[data-state="walking"] .pet-leg-front-2 {
-  animation: leg-walk 0.45s linear infinite reverse;
+  animation: leg-walk 1.0s linear infinite reverse;
 }
 
 #screen-pet[data-state="running"] .pet-leg-back-1,
 #screen-pet[data-state="running"] .pet-leg-front-1,
 #screen-pet[data-state="chasing"] .pet-leg-back-1,
 #screen-pet[data-state="chasing"] .pet-leg-front-1 {
-  animation: leg-run 0.18s linear infinite;
+  animation: leg-run 0.3s linear infinite;
 }
 
 #screen-pet[data-state="running"] .pet-leg-back-2,
 #screen-pet[data-state="running"] .pet-leg-front-2,
 #screen-pet[data-state="chasing"] .pet-leg-back-2,
 #screen-pet[data-state="chasing"] .pet-leg-front-2 {
-  animation: leg-run 0.18s linear infinite reverse;
+  animation: leg-run 0.3s linear infinite reverse;
 }
 
 @keyframes leg-walk {
@@ -324,14 +330,14 @@
 /* ============ 몸 바운스 ============ */
 #screen-pet[data-state="walking"] .pet-body-shape,
 #screen-pet[data-state="walking"] .pet-head {
-  animation: body-bob 0.45s ease-in-out infinite;
+  animation: body-bob 1.0s ease-in-out infinite;
 }
 
 #screen-pet[data-state="running"] .pet-body-shape,
 #screen-pet[data-state="running"] .pet-head,
 #screen-pet[data-state="chasing"] .pet-body-shape,
 #screen-pet[data-state="chasing"] .pet-head {
-  animation: body-bob 0.18s ease-in-out infinite;
+  animation: body-bob 0.3s ease-in-out infinite;
 }
 
 @keyframes body-bob {
@@ -348,7 +354,7 @@
 
 #screen-pet[data-state="sitting"] .pet-body-shape,
 #screen-pet[data-state="idle"] .pet-body-shape {
-  animation: breathe 2.5s ease-in-out infinite;
+  animation: breathe 4.0s ease-in-out infinite;
   transform-origin: center bottom;
   transform-box: fill-box;
 }
@@ -368,7 +374,7 @@
 /* 햄스터는 좀 더 귀여운 숨쉬기 */
 #screen-pet[data-pet="hamster"][data-state="idle"] .pet-body-shape,
 #screen-pet[data-pet="hamster"][data-state="sitting"] .pet-body-shape {
-  animation: hamster-breathe 1.5s ease-in-out infinite;
+  animation: hamster-breathe 2.5s ease-in-out infinite;
 }
 
 @keyframes hamster-breathe {
@@ -431,26 +437,92 @@
   /* 줄어든 움직임 */
 }
 
-/* 자는 상태 (Sleeping) */
-#screen-pet[data-state="sleeping"] .pet-body-shape,
+/* 자는 상태 (Sleeping) - 몸을 동그랗게 말고 자는 자세 */
+#screen-pet[data-state="sleeping"] .pet-inner {
+  /* 추가적인 이동 없이 방석 정중앙에 위치하도록 transform 정리 */
+  transform: scaleX(var(--facing)) scale(1.0);
+}
+
+#screen-pet[data-state="sleeping"] .pet-body-shape {
+  /* 몸을 좀 더 둥글고 납작하게 */
+  transform: scale(1.1, 0.85);
+  transform-origin: center bottom;
+  animation: sleeping-body 5s ease-in-out infinite;
+}
+
 #screen-pet[data-state="sleeping"] .pet-head {
-  animation: breathing 3s ease-in-out infinite;
+  /* 머리 그룹 전체를 몸쪽으로 이동 (이제 얼굴 조각들이 함께 움직임) */
+  transform: translate(-10px, 12px) rotate(-20deg);
+  transform-origin: center center;
+  animation: sleeping-head 5s ease-in-out infinite;
+  /* 얼굴과 몸의 경계를 구분하기 위한 그림자 추가 */
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
 }
 
 #screen-pet[data-state="sleeping"] .pet-eye {
   transform: scaleY(0.1);
+  /* 자는 동안은 깜빡이지 않도록 애니메이션 중지 */
+  animation: none !important;
   /* 눈 감기 */
 }
 
-@keyframes breathing {
+#screen-pet[data-state="sleeping"] .pet-leg {
+  /* 다리는 몸 안으로 숨김 */
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+#screen-pet[data-state="sleeping"] .pet-tail {
+  /* 잘 때는 꼬리를 숨김 */
+  opacity: 0;
+  transition: opacity 0.3s;
+  animation: none;
+}
+
+/* 공룡 전용 머리+목 굽히기 (이전의 가벼운 웅크리기 자세로 복구) */
+#screen-pet[data-pet="dino"][data-state="sleeping"] .pet-head {
+  /* 목과 몸의 연결을 유지하면서 가볍게 고개를 숙인 자세 */
+  transform: rotate(-15deg) translate(-5px, 8px);
+  transform-origin: 52px 48px;
+  /* 목과 몸의 연결점 */
+  animation: sleeping-head-dino 6s ease-in-out infinite;
+  /* 공룡 머리-목 그룹에 그림자 추가 */
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+}
+
+@keyframes sleeping-head-dino {
 
   0%,
   100% {
-    transform: scale(1);
+    transform: rotate(-15deg) translate(-5px, 8px);
   }
 
   50% {
-    transform: scale(1.03);
+    transform: rotate(-12deg) translate(-4px, 10px);
+  }
+}
+
+@keyframes sleeping-body {
+
+  0%,
+  100% {
+    transform: scale(1.1, 0.85);
+  }
+
+  50% {
+    transform: scale(1.14, 0.81);
+  }
+}
+
+@keyframes sleeping-head {
+
+  0%,
+  100% {
+    transform: translate(-10px, 12px) rotate(-25deg);
+  }
+
+  50% {
+    transform: translate(-9px, 14px) rotate(-22deg);
   }
 }
 

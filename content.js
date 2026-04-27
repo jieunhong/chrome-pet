@@ -25,17 +25,17 @@
   let lastMouseMoveTime = 0;
   let isAtHome = false;
 
-  // ============ 펫 하우스 ============
-  const HOUSE_W = 100;
-  const HOUSE_H = 100;
-  const HOUSE_MARGIN_RIGHT = 20;
-  const HOUSE_MARGIN_BOTTOM = 20;
+  // ============ 펫 방석 (Cushion) ============
+  const CUSHION_W = 100;
+  const CUSHION_H = 100;
+  const CUSHION_MARGIN_RIGHT = 20;
+  const CUSHION_MARGIN_BOTTOM = 20;
 
-  const homeLeft = () => window.innerWidth - HOUSE_W - HOUSE_MARGIN_RIGHT;
-  const homeTop = () => window.innerHeight - HOUSE_H - HOUSE_MARGIN_BOTTOM;
-  // 펫이 집 출입구 안쪽에 살짝 보이게 하는 좌표
-  const petHomeX = () => homeLeft() + (HOUSE_W - PET_W) / 2;
-  const petHomeY = () => homeTop() + HOUSE_H - PET_H + 8;
+  const homeLeft = () => window.innerWidth - CUSHION_W - CUSHION_MARGIN_RIGHT;
+  const homeTop = () => window.innerHeight - CUSHION_H - CUSHION_MARGIN_BOTTOM;
+  // 펫이 방석 위에 자연스럽게 앉아 있도록 좌표 조정
+  const petHomeX = () => homeLeft() + (-10) + (CUSHION_W - PET_W) / 2;
+  const petHomeY = () => homeTop() + 85 - PET_H; // 이전의 안정적인 중앙 좌표로 복구
 
   // ============ 펫 DOM 생성 ============
   const pet = document.createElement('div');
@@ -52,10 +52,10 @@
   pet.innerHTML = buildPetHTML(currentPet, currentName);
   document.body.appendChild(pet);
 
-  // 펫 하우스 DOM
+  // 펫 방석 DOM
   const house = document.createElement('div');
   house.id = 'pet-house';
-  house.title = '펫 하우스 (클릭하여 펫을 안에 재우기)';
+  house.title = '방석 (클릭하여 펫을 위에서 재우기)';
   house.innerHTML = window.HOUSE_SVG || '';
   document.body.appendChild(house);
 
@@ -162,6 +162,12 @@
       chase: ['🏃', '🎾', '🐶!', 'fetch!', 'wait!'],
       dance: ['🎵', '🎶', '🐕‍🦺', '♪', 'dance~', 'wooo!'],
     },
+    maltese_white: {
+      idle: ['☁️', '💤', '✨', '🎀', '♡', '🐾', '💭', '🌸', '😊', '🧸', '🥰', 'woof!', 'zzZ', 'ruff!', 'hehe', '…', 'yawn~', 'fluffy ♡', 'sniff~'],
+      click: ['🐶', '💕', '🥺', '😍', '🫶', '!!', 'hehe', 'yay!', 'again!', 'more!', 'woof!', 'love it!'],
+      chase: ['🏃', '🎾', '🐶!', 'fetch!', 'wait!'],
+      dance: ['🎵', '🎶', '🐩', '♪', 'dance~', 'wooo!'],
+    },
     hamster: {
       idle: ['🐹', '💤', '✨', '🌻', '♡', '🥜', '💭', '🧀', '😊', '🎡', '🥰', 'squeak~', 'zzZ', 'nom nom', 'hehe', '…', 'yawn~', 'cozy ♡', 'munch~'],
       click: ['🐹!', '💕', '🥺', '😳', '🫣', '!!', 'hehe', 'eek!', 'cheeks!', 'more!', 'squeak!', 'fluffy!'],
@@ -231,6 +237,11 @@
       y = e.clientY - dragOffsetY;
       vx = 0;
       vy = 0;
+
+      // 드래그 방향에 따라 시선 변경
+      if (Math.abs(e.movementX) > 1) {
+        facing = e.movementX > 0 ? 1 : -1;
+      }
 
       // 드래그 중에도 쓰다듬기 효과 (속도가 빠르면)
       if (Math.abs(e.movementX) + Math.abs(e.movementY) > 10) {
@@ -334,41 +345,41 @@
   // ============ 상태 전이 ============
   function pickRandomTarget() {
     const margin = 40;
-    // 집 영역(우측 하단)을 가급적 피해서 배회한다
+    // 방석 영역(우측 하단)을 가급적 피해서 배회한다
     const safeMax = Math.max(margin + 50, homeLeft() - PET_W - 10);
     targetX = margin + Math.random() * (safeMax - margin);
   }
 
   function chooseNextAction() {
     const r = Math.random();
-    if (r < 0.3) {
+    if (r < 0.2) { // 30% -> 20%
       state = 'walking';
       pickRandomTarget();
-      stateTimer = 300;
-    } else if (r < 0.5) {
+      stateTimer = 400; // 300 -> 400
+    } else if (r < 0.3) { // 20% -> 10%
       state = 'running';
       pickRandomTarget();
-      stateTimer = 180;
-    } else if (r < 0.7) {
+      stateTimer = 250; // 180 -> 250
+    } else if (r < 0.4) { // 20% -> 10%
       state = 'jumping';
-      vy = -11 - Math.random() * 3;
-      vx = (Math.random() - 0.5) * 6;
-      stateTimer = 80;
-      if (Math.random() < 0.3) showThought();
-    } else if (r < 0.85) {
+      vy = -10 - Math.random() * 2; // 조금 덜 뛰게
+      vx = (Math.random() - 0.5) * 4;
+      stateTimer = 100;
+      if (Math.random() < 0.2) showThought();
+    } else if (r < 0.7) { // 15% -> 30%
       state = 'sitting';
-      stateTimer = 200 + Math.random() * 200;
-    } else if (r < 0.93) {
+      stateTimer = 400 + Math.random() * 400; // 더 오래 앉아있음
+    } else if (r < 0.8) { // 8% -> 10%
       state = 'dancing';
       stateTimer = 150;
       showThought('♪');
-    } else if (r < 0.98) {
+    } else if (r < 0.9) { // 5% -> 10%
       state = 'sleeping';
-      stateTimer = 600 + Math.random() * 600; // 오래 잠
+      stateTimer = 800 + Math.random() * 1000; // 더 깊게 잠
       showThought('zzZ');
-    } else {
+    } else { // 2% -> 10%
       state = 'idle';
-      stateTimer = 100 + Math.random() * 100;
+      stateTimer = 200 + Math.random() * 300; // 더 오래 멍하게
     }
   }
 
@@ -377,7 +388,7 @@
     stateTimer--;
 
     if (isAtHome) {
-      // 집 안에서 가만히 자기. 창 크기 변경에도 위치 재고정.
+      // 방석 위에서 가만히 자기. 창 크기 변경에도 위치 재고정.
       x = petHomeX();
       y = petHomeY();
       vx = 0;
@@ -386,13 +397,11 @@
 
       if (Math.random() < 0.015) createZzz();
 
-      pet.style.transform = `translate(${x}px, ${y}px)`;
       pet.style.setProperty('--x', `${x}px`);
       pet.style.setProperty('--y', `${y}px`);
       pet.style.setProperty('--facing', facing);
+      pet.dataset.facing = facing; // 데이터 속성 추가
       pet.dataset.state = 'sleeping';
-      const innerHome = pet.querySelector('.pet-inner');
-      if (innerHome) innerHome.style.transform = `scaleX(${facing}) scale(0.55)`;
 
       requestAnimationFrame(update);
       return;
@@ -421,29 +430,28 @@
         const dx = targetX - x;
         if (Math.abs(dx) < 3 || stateTimer <= 0) {
           state = 'idle';
-          stateTimer = 60 + Math.random() * 120;
+          stateTimer = 120 + Math.random() * 120;
         } else {
-          vx = Math.sign(dx) * 1.8;
-          facing = Math.sign(dx);
+          vx = dx > 0 ? 1.2 : -1.2;
+          facing = dx > 0 ? 1 : -1;
         }
       } else if (state === 'running') {
         const dx = targetX - x;
         if (Math.abs(dx) < 3 || stateTimer <= 0) {
           state = 'idle';
-          stateTimer = 30 + Math.random() * 60;
+          stateTimer = 60 + Math.random() * 120;
         } else {
-          vx = Math.sign(dx) * 4.5;
-          facing = Math.sign(dx);
+          vx = dx > 0 ? 3.2 : -3.2;
+          facing = dx > 0 ? 1 : -1;
         }
       } else if (state === 'chasing') {
         const dx = targetX - x;
         if (Math.abs(dx) < 10) {
           state = 'idle';
-          stateTimer = 40;
-          if (Math.random() < 0.5) showThought();
+          stateTimer = 80;
         } else {
-          vx = Math.sign(dx) * 5.5;
-          facing = Math.sign(dx);
+          vx = dx > 0 ? 4.0 : -4.0;
+          facing = dx > 0 ? 1 : -1;
         }
       } else if (state === 'dancing') {
         vx = 0;
@@ -501,14 +509,12 @@
       createZzz();
     }
 
-    pet.style.transform = `translate(${x}px, ${y}px)`;
     // CSS 애니메이션용 변수 주입
     pet.style.setProperty('--x', `${x}px`);
     pet.style.setProperty('--y', `${y}px`);
     pet.style.setProperty('--facing', facing);
+    pet.dataset.facing = facing; // 데이터 속성 추가
 
-    const inner = pet.querySelector('.pet-inner');
-    if (inner) inner.style.transform = `scaleX(${facing})`;
     pet.dataset.state = state;
 
     requestAnimationFrame(update);
