@@ -69,5 +69,13 @@ screen-pet/
 3. Add a new card in `popup.html` and update `popup.js` to handle the selection.
 4. Add specific thoughts for your new pet in `content.js` under `PET_THOUGHTS`.
 
+## License
+
+This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.
+
+- ✅ Free to use, share, and modify for personal and non-commercial purposes
+- ❌ Commercial use is not permitted
+- 📄 See [LICENSE](LICENSE) for full details
+
 ---
 *Created with ❤️ for your browser.*
