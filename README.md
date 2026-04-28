@@ -10,7 +10,11 @@ Choose from **Ginger Cat 🐱 / Maltese 🐶 / Hamster 🐹 / Dino 🦕**.
 - **English Dialogue System**: Pets express their thoughts with localized strings and emojis.
 - **Real-time Sync**: Changes in name or pet type are instantly reflected across all open tabs.
 
-## Installation
+## Download
+
+[**Install from Chrome Web Store**](https://chromewebstore.google.com/detail/screen-pet-%ED%99%94%EB%A9%B4-%ED%8E%AB/cmecjkngmlhbajpfdbnlnlodohbgkahg)
+
+## Installation (Developer Mode)
 
 1. Unzip the folder.
 2. Go to `chrome://extensions` in Chrome.
