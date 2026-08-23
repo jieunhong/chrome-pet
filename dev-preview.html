@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Screen Pet — 테마 미리보기</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    :root {
+      --zoom: 2;
+      --stage-bg: #fdf6ec;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px 28px 80px;
+      font-family: -apple-system, "Pretendard", system-ui, sans-serif;
+      background: #efe7dd;
+      color: #3a2a1e;
+    }
+
+    h1 {
+      font-size: 18px;
+      margin: 0 0 2px;
+    }
+
+    p.sub {
+      margin: 0 0 20px;
+      font-size: 12px;
+      color: #8a6a54;
+    }
+
+    .controls {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      padding: 12px 0 14px;
+      margin-bottom: 18px;
+      background: #efe7dd;
+      border-bottom: 1px solid #d9cbbb;
+    }
+
+    .group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .group > label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #8a6a54;
+      margin-right: 2px;
+    }
+
+    .controls button {
+      padding: 5px 10px;
+      border: 1px solid #d0bda6;
+      border-radius: 7px;
+      background: #fff;
+      color: #5a3a28;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .controls button.on {
+      background: #e8936c;
+      border-color: #e8936c;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    table {
+      border-collapse: collapse;
+    }
+
+    h2 {
+      font-size: 15px;
+      margin: 36px 0 2px;
+    }
+
+    #variants {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-top: 14px;
+    }
+
+    .variant {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .variant .cap {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .variant .cap span {
+      font-weight: 400;
+      color: #8a6a54;
+    }
+
+    th {
+      font-size: 12px;
+      color: #8a6a54;
+      text-align: left;
+      padding: 0 14px 10px;
+    }
+
+    th.pet-col {
+      width: 150px;
+    }
+
+    td {
+      padding: 8px 14px;
+      vertical-align: middle;
+    }
+
+    td.label {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    td.label small {
+      display: block;
+      font-weight: 400;
+      font-size: 11px;
+      color: #8a6a54;
+    }
+
+    .tile {
+      width: calc(80px * var(--zoom));
+      height: calc(80px * var(--zoom));
+      background: var(--stage-bg);
+      border: 1px solid #d9cbbb;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .tile.house {
+      width: calc(100px * var(--zoom));
+      height: calc(100px * var(--zoom));
+    }
+
+    .stage {
+      width: 80px;
+      height: 80px;
+      transform: scale(var(--zoom));
+      transform-origin: top left;
+    }
+
+    .tile.house .stage {
+      width: 100px;
+      height: 100px;
+    }
+
+    /*
+     * 미리보기 타일은 실제 확장과 같은 CSS 를 쓰기 위해 id="screen-pet" 을 그대로 단다.
+     * 한 페이지에 여러 개라 id 가 중복되지만, CSS 는 전부에 적용되고 여기서 getElementById 는 쓰지 않는다.
+     * 화면에 띄우기 위한 고정 위치/그림자만 여기서 되돌린다.
+     */
+    .stage #screen-pet,
+    .stage #pet-house {
+      position: static;
+      left: auto;
+      bottom: auto;
+      width: 100%;
+      height: 100%;
+      cursor: default;
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
+      --facing: 1;
+    }
+
+    .stage #screen-pet {
+      transform: none;
+    }
+
+    .stage #pet-house:hover {
+      transform: none;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Screen Pet — 일반 / 도트 테마 비교</h1>
+  <p class="sub">실제 <code>styles.css</code> 를 그대로 물려서 그립니다. 상태를 바꾸면 두 테마의 동작 애니메이션을 나란히 확인할 수 있습니다.</p>
+
+  <div class="controls">
+    <div class="group" id="stateGroup"><label>state</label></div>
+    <div class="group" id="zoomGroup"><label>zoom</label></div>
+    <div class="group" id="bgGroup"><label>bg</label></div>
+  </div>
+
+  <table id="board"></table>
+
+  <h2 id="variantTitle">갈색 말티즈 얼굴 시안</h2>
+  <p class="sub">마음에 드는 번호를 알려주세요. 위 컨트롤의 state/zoom/bg 가 여기에도 그대로 적용됩니다.</p>
+  <div id="variants"></div>
+
+  <script src="pets.js"></script>
+  <script src="pets-pixel.js"></script>
+  <script>
+    (function () {
+      const STATES = ['idle', 'sitting', 'walking', 'running', 'jumping', 'dancing', 'sleeping'];
+      const ZOOMS = [1, 2, 4];
+      const BGS = {
+        light: '#fdf6ec',
+        white: '#ffffff',
+        dark: '#2b2b33',
+      };
+
+      const board = document.getElementById('board');
+
+      const petTile = (theme, petType) => `
+        <div class="tile">
+          <div class="stage">
+            <div id="screen-pet" data-pet="${petType}" data-theme="${theme}" data-state="idle">
+              <div class="pet-inner">${window.PET_THEMES[theme].pets[petType]}</div>
+            </div>
+          </div>
+        </div>`;
+
+      const houseTile = (theme) => `
+        <div class="tile house">
+          <div class="stage">
+            <div id="pet-house" data-theme="${theme}">${window.PET_THEMES[theme].house}</div>
+          </div>
+        </div>`;
+
+      const head = `
+        <tr>
+          <th class="pet-col">pet</th>
+          ${window.PET_THEME_LIST.map((t) => `<th>${window.PET_THEME_NAMES[t]}</th>`).join('')}
+        </tr>`;
+
+      const petRows = window.PET_LIST.map((petType) => `
+        <tr>
+          <td class="label">${window.PET_NAMES[petType]}<small>${petType}</small></td>
+          ${window.PET_THEME_LIST.map((t) => `<td>${petTile(t, petType)}</td>`).join('')}
+        </tr>`).join('');
+
+      const houseRow = `
+        <tr>
+          <td class="label">방석<small>cushion</small></td>
+          ${window.PET_THEME_LIST.map((t) => `<td>${houseTile(t)}</td>`).join('')}
+        </tr>`;
+
+      board.innerHTML = head + petRows + houseRow;
+
+      // 컨트롤: 누른 버튼만 on 으로 두고 각자 하는 일을 콜백으로 받는다
+      function buildGroup(containerId, items, initial, onPick) {
+        const container = document.getElementById(containerId);
+        const buttons = items.map((item) => {
+          const btn = document.createElement('button');
+          btn.textContent = item;
+          btn.addEventListener('click', () => {
+            buttons.forEach((b) => b.classList.toggle('on', b === btn));
+            onPick(item);
+          });
+          if (item === initial) btn.classList.add('on');
+          container.appendChild(btn);
+          return btn;
+        });
+      }
+
+      // ===== 갈색 말티즈 얼굴 시안 =====
+      // 얼굴 코어를 7칸(홀수)으로 잡아 정중앙 칸(14)에 코를 놓을 수 있게 했다.
+      const DOG_FACE_VARIANTS = [
+        {
+          note: '눈 1칸 · 주둥이 3행',
+          head: ['...ooooo...', '..ooooooo..', 'ddooooooodd', 'ddooooooodd',
+            'ddommmmmodd', '.dommmmmod.', '..ommmmmo..'],
+          face: { y: 10, rows: ['.....e.....', '...........', '.....t.....'] },
+          eyes: [[12, 8], [16, 8]],
+        },
+        {
+          note: '눈 2×2 크게',
+          head: ['...ooooo...', '..ooooooo..', 'ddooooooodd', 'ddooooooodd',
+            'ddommmmmodd', '.dommmmmod.', '..ommmmmo..'],
+          face: { y: 10, rows: ['.....e.....', '...........', '.....t.....'] },
+          eyes: [[12, 8, 2, 2], [15, 8, 2, 2]],
+        },
+        {
+          note: '귀가 얼굴보다 길게 늘어짐 — 현재 적용본',
+          head: ['...ooooo...', '..ooooooo..', 'ddooooooodd', 'ddommmmmodd',
+            'ddommmmmodd', 'dd.mmmmm.dd', '.d.......d.'],
+          face: { y: 9, rows: ['.....e.....', '...........', '.....t.....'] },
+          eyes: [[12, 8], [16, 8]],
+        },
+        {
+          note: '주둥이가 아래로 튀어나옴',
+          head: ['...ooooo...', '..ooooooo..', 'ddooooooodd', 'ddooooooodd',
+            '.dommmmmod.', '..ommmmmo..', '...mmmmm...', '....mmm....'],
+          face: { y: 12, rows: ['.....e.....', '.....t.....'] },
+          eyes: [[12, 8], [16, 8]],
+        },
+      ];
+
+      const variantsHost = document.getElementById('variants');
+      variantsHost.innerHTML = DOG_FACE_VARIANTS.map((v, i) => {
+        const svg = window.buildPixelPet({
+          ...window.PIXEL_PET_DEFS.dog,
+          head: { x: 9, y: 6, rows: v.head },
+          face: { x: 9, y: v.face.y, rows: v.face.rows },
+          eyes: v.eyes,
+        });
+        return `
+          <div class="variant">
+            <div class="cap">${i + 1}. <span>${v.note}</span></div>
+            <div class="tile">
+              <div class="stage">
+                <div id="screen-pet" data-pet="dog" data-theme="pixel" data-state="idle">
+                  <div class="pet-inner">${svg}</div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+
+      buildGroup('stateGroup', STATES, 'idle', (state) => {
+        document.querySelectorAll('.stage #screen-pet').forEach((el) => {
+          el.dataset.state = state;
+        });
+      });
+
+      buildGroup('zoomGroup', ZOOMS.map((z) => `${z}x`), '2x', (label) => {
+        document.documentElement.style.setProperty('--zoom', parseInt(label, 10));
+      });
+
+      buildGroup('bgGroup', Object.keys(BGS), 'light', (name) => {
+        document.documentElement.style.setProperty('--stage-bg', BGS[name]);
+      });
+    })();
+  </script>
+</body>
+
+</html>

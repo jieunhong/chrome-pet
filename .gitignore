@@ -1,0 +1,10 @@
+# node build.js 가 매번 새로 만드는 중간 산출물
+build/
+
+# package.sh 로 언제든 다시 만드는 배포 zip
+*.zip
+
+# store 파일 다 삭제
+/store/*
+!/store/out/
+!/store/build/

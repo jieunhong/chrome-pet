@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Screen Pet — 로컬 테스트 하네스</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      margin: 0;
+      min-height: 200vh;
+      font-family: -apple-system, "Pretendard", system-ui, sans-serif;
+      background: linear-gradient(180deg, #fdf6ec, #e8f0f7);
+      color: #3a2a1e;
+    }
+
+    .doc {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 24px 320px;
+      line-height: 1.7;
+    }
+
+    .doc h1 {
+      font-size: 22px;
+      margin: 0 0 4px;
+    }
+
+    .doc p.sub {
+      margin: 0 0 28px;
+      color: #8a6a54;
+      font-size: 13px;
+    }
+
+    .doc ol {
+      padding-left: 20px;
+    }
+
+    .doc li {
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+
+    .doc code {
+      background: rgba(0, 0, 0, 0.06);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    #probe {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 2147483645;
+      width: 260px;
+      padding: 12px 14px;
+      background: rgba(24, 20, 18, 0.9);
+      color: #f4ece3;
+      border-radius: 10px;
+      font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    #probe h2 {
+      margin: 0 0 8px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #d9a77c;
+    }
+
+    #probe .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    #probe .row span:last-child {
+      color: #9fe0a8;
+    }
+
+    #probe .row.warn span:last-child {
+      color: #ffb4a2;
+    }
+
+    #probe select {
+      width: 100%;
+      margin-top: 10px;
+      padding: 5px;
+      border-radius: 6px;
+      border: 1px solid #5a4a40;
+      background: #2c2522;
+      color: #f4ece3;
+      font: inherit;
+    }
+
+    #probe #p-log {
+      max-height: 132px;
+      overflow-y: auto;
+      color: #cbbdb0;
+    }
+
+    #probe #p-log div {
+      padding: 1px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    #probe #p-log b {
+      color: #d9a77c;
+      font-weight: 400;
+    }
+
+    #probe button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 6px;
+      background: #e8936c;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="probe">
+    <h2>probe</h2>
+    <div class="row"><span>stored cushionX</span><span id="p-cushion">—</span></div>
+    <div class="row"><span>rendered left</span><span id="p-left">—</span></div>
+    <div class="row"><span>atHome</span><span id="p-athome">—</span></div>
+    <div class="row"><span>Δwidth</span><span id="p-dw">—</span></div>
+    <div class="row"><span>Δheight</span><span id="p-dh">—</span></div>
+    <div class="row"><span>devtools-hidden</span><span id="p-hidden">—</span></div>
+    <div class="row"><span>rAF running</span><span id="p-raf">—</span></div>
+    <div class="row"><span>time slot</span><span id="p-slot">—</span></div>
+    <div class="row"><span>theme</span><span id="p-theme">—</span></div>
+    <select id="p-themePick">
+      <option value="normal">테마: 일반</option>
+      <option value="pixel">테마: 도트</option>
+    </select>
+    <select id="p-hour">
+      <option value="">실제 시각 사용</option>
+      <option value="3">03시 → lateNight</option>
+      <option value="8">08시 → morning</option>
+      <option value="12">12시 → noon</option>
+      <option value="16">16시 → afternoon</option>
+      <option value="20">20시 → evening</option>
+      <option value="23">23시 → night</option>
+    </select>
+    <h2 style="margin-top:12px">말풍선 로그</h2>
+    <div id="p-log">—</div>
+    <button id="p-reset">저장값 초기화 후 새로고침</button>
+  </div>
+
+  <div class="doc">
+    <h1>Screen Pet 로컬 테스트 하네스</h1>
+    <p class="sub">실제 <code>pets.js</code> / <code>content.js</code> / <code>styles.css</code> 를 그대로 로드합니다. <code>chrome.storage.local</code> 은 localStorage 로 대체돼 탭 간 동기화까지 동작합니다.</p>
+
+    <ol>
+      <li><strong>방석 이동</strong> — 우측 하단 방석을 좌우로 끌어보세요. 놓는 순간 <code>stored cushionX</code> 가 갱신되고, 새로고침해도 그 자리에 있어야 합니다.</li>
+      <li><strong>클릭 토글 유지</strong> — 방석을 <em>움직이지 않고</em> 짧게 클릭하면 펫이 방석 위로 올라가 자야 합니다 (<code>atHome=true</code>). 다시 클릭하면 내려옵니다.</li>
+      <li><strong>펫을 태운 채 이동</strong> — 재운 상태에서 방석을 끌면 펫이 방석에 붙어 따라와야 합니다.</li>
+      <li><strong>경계 clamp</strong> — 방석을 화면 왼쪽/오른쪽 끝 밖으로 끌어도 화면 안에 붙어야 합니다.</li>
+      <li><strong>창 크기 보존</strong> — 방석을 오른쪽 끝에 두고 창을 좁혔다 다시 넓히면, 좁혔을 때는 clamp 되고 넓히면 원래 자리로 돌아와야 합니다.</li>
+      <li><strong>배회 범위</strong> — 방석을 <em>왼쪽 끝</em>으로 옮기고 잠시 두세요. 펫이 왼쪽 구석에 갇히지 않고 화면 전체를 돌아다녀야 합니다 (이번에 같이 고친 부분).</li>
+      <li><strong>탭 간 동기화</strong> — 이 페이지를 두 탭에 띄우고 한쪽에서 방석을 옮긴 뒤, 다른 탭을 클릭해 포커스를 주면 같은 위치로 따라와야 합니다.</li>
+      <li><strong>개발자도구</strong> — <code>⌥⌘I</code> 로 devtools 를 <em>도킹된 상태</em>로 여세요. 펫과 방석이 즉시 사라지고 <code>rAF running</code> 이 <code>no</code> 로 바뀌어야 합니다. 닫으면 되살아납니다. (별도 창으로 띄우면 감지되지 않는 것이 정상입니다.)</li>
+      <li><strong>테마 전환</strong> — probe 의 테마 셀렉터로 일반/도트를 바꿔보세요. 펫과 방석이 동시에 갈아끼워지고, 걷기·꼬리·눈 깜빡임 애니메이션이 도트 버전에서도 그대로 돌아야 합니다. 이름표를 붙여둔 상태로 바꿔도 이름이 유지돼야 합니다.</li>
+      <li><strong>시간대별 대사</strong> — probe 의 시간 셀렉터로 시각을 강제한 뒤, 방석을 클릭해 펫을 재웠다 깨우면 그 시간대 인사말이 나옵니다 (<code>good morning! ☀️</code>, <code>still up? 🌙</code> 등). 멍하니 두면 <code>말풍선 로그</code> 에 시간대 대사가 섞여 쌓입니다. 클릭·추격·댄스 반응은 시간과 무관하게 유지되는지도 같이 보세요.</li>
+    </ol>
+    <p class="sub">아래로 스크롤해도 펫은 <code>position: fixed</code> 라 화면에 붙어 있어야 합니다.</p>
+  </div>
+
+  <script>
+    // ===== chrome.storage.local 셰임 (localStorage 백엔드) =====
+    // content.js 는 chrome 이 있으면 storage 경로를 타므로, 실제 확장과 같은 코드 경로로 테스트된다.
+    (function () {
+      const KEY = 'screen-pet-harness';
+      const listeners = [];
+
+      const read = () => {
+        try {
+          return JSON.parse(localStorage.getItem(KEY)) || {};
+        } catch {
+          return {};
+        }
+      };
+
+      window.__harnessRead = read;
+
+      window.chrome = {
+        storage: {
+          local: {
+            get(keys, cb) {
+              const all = read();
+              const picked = {};
+              keys.forEach((k) => {
+                if (k in all) picked[k] = all[k];
+              });
+              // 실제 chrome.storage 는 비동기다. 동기로 부르면 content.js 평가 도중
+              // 콜백이 실행돼 실제와 다른 순서로 동작한다.
+              setTimeout(() => cb(picked), 0);
+            },
+            set(obj, cb) {
+              const all = read();
+              const changes = {};
+              Object.keys(obj).forEach((k) => {
+                if (all[k] === obj[k]) return;
+                changes[k] = { oldValue: all[k], newValue: obj[k] };
+                all[k] = obj[k];
+              });
+              localStorage.setItem(KEY, JSON.stringify(all));
+              if (Object.keys(changes).length) {
+                listeners.forEach((fn) => fn(changes, 'local'));
+              }
+              if (cb) cb();
+            },
+          },
+          onChanged: {
+            addListener(fn) {
+              listeners.push(fn);
+            },
+          },
+        },
+      };
+
+      // 다른 탭에서의 변경 -> onChanged 로 재방송 (실제 확장의 탭 간 동기화 재현)
+      window.addEventListener('storage', (e) => {
+        if (e.key !== KEY) return;
+        const before = JSON.parse(e.oldValue || '{}');
+        const after = JSON.parse(e.newValue || '{}');
+        const changes = {};
+        Object.keys(after).forEach((k) => {
+          if (before[k] !== after[k]) changes[k] = { oldValue: before[k], newValue: after[k] };
+        });
+        if (Object.keys(changes).length) listeners.forEach((fn) => fn(changes, 'local'));
+      });
+    })();
+  </script>
+
+  <script src="pets.js"></script>
+  <script src="pets-pixel.js"></script>
+  <script src="content.js"></script>
+
+  <script>
+    // ===== probe: 내부 상태를 밖에서 관찰 =====
+    (function () {
+      const $ = (id) => document.getElementById(id);
+      const pet = document.getElementById('screen-pet');
+      const house = document.getElementById('pet-house');
+
+      // content.js 는 매 프레임 pet 의 style/data-state 를 다시 쓴다.
+      // 값이 같아도 attribute 변경으로 기록되므로, 이걸 세면 루프가 도는지 밖에서 알 수 있다.
+      let frameWrites = 0;
+      new MutationObserver(() => { frameWrites++; })
+        .observe(pet, { attributes: true, attributeFilter: ['style', 'data-state'] });
+
+      // content.js 는 new Date().getHours() 로 시간대를 정한다.
+      // 하네스에서만 이 값을 가로채 시계를 바꾸지 않고도 시간대별 대사를 확인한다.
+      const realGetHours = Date.prototype.getHours;
+      let forcedHour = null;
+      Date.prototype.getHours = function () {
+        return forcedHour === null ? realGetHours.call(this) : forcedHour;
+      };
+      $('p-hour').addEventListener('change', (e) => {
+        forcedHour = e.target.value === '' ? null : Number(e.target.value);
+      });
+
+      const slotOf = (hour) => {
+        if (hour < 5) return 'lateNight';
+        if (hour < 11) return 'morning';
+        if (hour < 14) return 'noon';
+        if (hour < 18) return 'afternoon';
+        if (hour < 22) return 'evening';
+        return 'night';
+      };
+
+      // 말풍선은 1.5초만 떠 있어서 500ms 주기로는 놓칠 수 있다
+      const logNode = $('p-log');
+      const history = [];
+      let lastThought = '';
+      setInterval(() => {
+        const bubble = document.querySelector('#screen-pet .pet-thought');
+        if (!bubble || !bubble.classList.contains('show')) return;
+        const text = bubble.textContent;
+        if (!text || text === lastThought) return;
+        lastThought = text;
+        history.unshift(`<div><b>${slotOf(new Date().getHours())}</b> ${text}</div>`);
+        history.length = Math.min(history.length, 30);
+        logNode.innerHTML = history.join('');
+      }, 150);
+
+      const set = (id, value, warn) => {
+        const node = $(id);
+        node.textContent = value;
+        node.parentElement.classList.toggle('warn', !!warn);
+      };
+
+      setInterval(() => {
+        const stored = window.__harnessRead();
+        const dw = window.outerWidth - window.innerWidth;
+        const dh = window.outerHeight - window.innerHeight;
+        const hidden = pet.classList.contains('devtools-hidden');
+        const running = frameWrites > 0;
+        frameWrites = 0;
+
+        set('p-cushion', stored.cushionX === undefined ? '(기본값)' : Math.round(stored.cushionX));
+        set('p-left', house.style.left || '(미설정)');
+        set('p-athome', String(!!stored.atHome));
+        set('p-dw', `${dw}px`, dw > 160);
+        set('p-dh', `${dh}px`, dh > 160);
+        set('p-hidden', hidden ? 'yes' : 'no', hidden);
+        // 숨김과 루프 정지는 항상 짝이어야 한다. 어긋나면 빨갛게 표시.
+        set('p-raf', running ? 'yes' : 'no', hidden === running);
+        set('p-slot', slotOf(new Date().getHours()));
+        set('p-theme', pet.dataset.theme || '—');
+      }, 500);
+
+      $('p-themePick').value = window.__harnessRead().theme || 'normal';
+      $('p-themePick').addEventListener('change', (e) => {
+        window.chrome.storage.local.set({ theme: e.target.value });
+      });
+
+      $('p-reset').addEventListener('click', () => {
+        localStorage.removeItem('screen-pet-harness');
+        location.reload();
+      });
+    })();
+  </script>
+</body>
+
+</html>

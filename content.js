@@ -8,6 +8,7 @@
   const GRAVITY = 0.6;
 
   let currentPet = window.DEFAULT_PET || 'cat';
+  let currentTheme = window.DEFAULT_THEME || 'normal';
   let currentName = '';
   let x = window.innerWidth - PET_W - 40;
   let y = window.innerHeight - PET_H - 10;
@@ -24,6 +25,7 @@
   let dragOffsetY = 0;
   let lastMouseMoveTime = 0;
   let isAtHome = false;
+  let isDevToolsOpen = false;
 
   // ============ 펫 방석 (Cushion) ============
   const CUSHION_W = 100;
@@ -31,57 +33,79 @@
   const CUSHION_MARGIN_RIGHT = 20;
   const CUSHION_MARGIN_BOTTOM = 20;
 
-  const homeLeft = () => window.innerWidth - CUSHION_W - CUSHION_MARGIN_RIGHT;
+  // 사용자가 지정한 방석 위치(왼쪽 기준 px). 저장값은 그대로 두고 화면에 그릴 때만 clamp 한다.
+  let cushionX = window.innerWidth - CUSHION_W - CUSHION_MARGIN_RIGHT;
+
+  const homeLeft = () => Math.min(Math.max(cushionX, 0), window.innerWidth - CUSHION_W);
   const homeTop = () => window.innerHeight - CUSHION_H - CUSHION_MARGIN_BOTTOM;
-  // 펫이 방석 위에 자연스럽게 앉아 있도록 좌표 조정
-  const petHomeX = () => homeLeft() + (-10) + (CUSHION_W - PET_W) / 2;
+  // 펫(80)을 방석(100) 가운데에 놓는다
+  const petHomeX = () => homeLeft() + (CUSHION_W - PET_W) / 2;
   const petHomeY = () => homeTop() + 85 - PET_H; // 이전의 안정적인 중앙 좌표로 복구
 
   // ============ 펫 DOM 생성 ============
   const pet = document.createElement('div');
   pet.id = 'screen-pet';
+  let thought = null;
+
+  function themeAssets() {
+    const themes = window.PET_THEMES;
+    return (themes && (themes[currentTheme] || themes.normal)) || { pets: {}, house: '' };
+  }
 
   function buildPetHTML(petType, name) {
-    const svg = (window.PET_SVGS && window.PET_SVGS[petType]) || (window.PET_SVGS && window.PET_SVGS.cat) || '';
+    const pets = themeAssets().pets;
+    const svg = pets[petType] || pets.cat || '';
     const nameLabel = name ? `<div class="pet-name">${name}</div>` : '';
     return `<div class="pet-inner">${svg}<div class="pet-thought"></div>${nameLabel}</div>`;
   }
 
-  // 초기 펫 설정
-  pet.dataset.pet = currentPet;
-  pet.innerHTML = buildPetHTML(currentPet, currentName);
+  // innerHTML 을 갈아끼우면 말풍선 노드도 새로 생기므로 참조를 매번 다시 잡는다
+  function renderPet() {
+    pet.dataset.pet = currentPet;
+    pet.dataset.theme = currentTheme;
+    pet.innerHTML = buildPetHTML(currentPet, currentName);
+    thought = pet.querySelector('.pet-thought');
+  }
+
+  renderPet();
   document.body.appendChild(pet);
 
   // 펫 방석 DOM
   const house = document.createElement('div');
   house.id = 'pet-house';
-  house.title = '방석 (클릭하여 펫을 위에서 재우기)';
-  house.innerHTML = window.HOUSE_SVG || '';
+  house.title = '방석 (클릭: 펫 재우기 / 드래그: 위치 옮기기)';
   document.body.appendChild(house);
 
-  let thought = pet.querySelector('.pet-thought');
+  function renderHouse() {
+    house.dataset.theme = currentTheme;
+    house.innerHTML = themeAssets().house;
+  }
+  renderHouse();
+
+  function applyCushionPosition() {
+    house.style.left = `${homeLeft()}px`;
+  }
+  applyCushionPosition();
 
   function setPet(petType) {
-    if (!window.PET_SVGS || !window.PET_SVGS[petType]) return;
-    if (currentPet === petType && pet.dataset.pet === petType && pet.querySelector('.pet-inner')) {
-      // 이미 해당 펫이면 말풍선만 띄우기
-      showThought('hi! 👋');
-      return;
+    if (!themeAssets().pets[petType]) return;
+    if (currentPet !== petType) {
+      currentPet = petType;
+      renderPet();
     }
-
-    currentPet = petType;
-    pet.dataset.pet = petType;
-    pet.innerHTML = buildPetHTML(petType, currentName);
-    // 다시 참조 잡기
-    thought = pet.querySelector('.pet-thought');
-    showThought('hi! 👋');
+    showThought(getGreeting());
   }
 
   function setName(name) {
     currentName = name;
-    pet.innerHTML = buildPetHTML(currentPet, currentName);
-    // 다시 참조 잡기
-    thought = pet.querySelector('.pet-thought');
+    renderPet();
+  }
+
+  function setTheme(theme) {
+    if (!window.PET_THEMES || !window.PET_THEMES[theme] || theme === currentTheme) return;
+    currentTheme = theme;
+    renderPet();
+    renderHouse();
   }
 
   function setAtHome(value) {
@@ -106,16 +130,26 @@
       stateTimer = 60;
       vx = 0;
       vy = 0;
-      // 집 왼쪽 옆으로 살짝 빠져나오기
-      x = Math.max(20, homeLeft() - PET_W - 10);
+      // 방석 옆으로 빠져나오기 (왼쪽에 자리가 없으면 오른쪽으로)
+      const exitLeft = homeLeft() - PET_W - 10;
+      x = exitLeft >= 0
+        ? exitLeft
+        : Math.min(window.innerWidth - PET_W, homeLeft() + CUSHION_W + 10);
       y = groundY();
-      showThought('hi! 👋');
+      showThought(getGreeting());
     }
   }
 
   // storage 에서 펫 타입 및 이름 읽어오기 및 리스너 등록
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet', 'petName', 'atHome'], (result) => {
+    chrome.storage.local.get(['pet', 'petName', 'atHome', 'cushionX', 'theme'], (result) => {
+      if (typeof result.cushionX === 'number') {
+        cushionX = result.cushionX;
+        applyCushionPosition();
+      }
+      if (result.theme) {
+        setTheme(result.theme);
+      }
       if (result.petName) {
         currentName = result.petName;
         setName(currentName);
@@ -131,6 +165,11 @@
     // 팝업에서 storage 변경 시 실시간 반영
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local') {
+        if (changes.cushionX) {
+          cushionX = changes.cushionX.newValue;
+          applyCushionPosition();
+        }
+        if (changes.theme) setTheme(changes.theme.newValue);
         if (changes.pet) setPet(changes.pet.newValue);
         if (changes.petName) setName(changes.petName.newValue);
         if (changes.atHome) setAtHome(!!changes.atHome.newValue);
@@ -145,6 +184,8 @@
         setPet(message.petType);
       } else if (message.type === 'CHANGE_NAME') {
         setName(message.name);
+      } else if (message.type === 'CHANGE_THEME' && message.theme) {
+        setTheme(message.theme);
       }
     });
   }
@@ -182,10 +223,43 @@
     },
   };
 
+  // 사용자 로컬 시간 기준. 탭을 오래 켜둬도 시간이 넘어가면 반영되도록 부를 때마다 계산한다.
+  function currentTimeSlot() {
+    const hour = new Date().getHours();
+    if (hour < 5) return 'lateNight';
+    if (hour < 11) return 'morning';
+    if (hour < 14) return 'noon';
+    if (hour < 18) return 'afternoon';
+    if (hour < 22) return 'evening';
+    return 'night';
+  }
+
+  const TIME_THOUGHTS = {
+    lateNight: ['🌙', '😴', '🥱', '🛌', 'still up?', 'go sleep~', 'zzZ...', 'so late…', 'sleepy…'],
+    morning: ['☀️', '🌅', '🥐', '🌤️', 'morning~', 'good morning!', 'stretch~', 'rise n shine', 'breakfast?'],
+    noon: ['🍚', '😋', '🍜', '🥪', '🍙', 'lunch time!', 'hungry…', 'nom nom', 'feed me~'],
+    afternoon: ['☕', '🥱', '🍪', '🌤️', 'sleepy…', 'break time~', 'snack?', 'so slow…', 'yawn~'],
+    evening: ['🌆', '🍽️', '🌇', '🛋️', '✨', 'good evening~', 'dinner?', 'cozy~', 'nice day?'],
+    night: ['🌙', '⭐', '💤', '🌠', 'bedtime~', 'sleepy…', 'good night', 'nighty~', 'zzZ'],
+  };
+
+  const TIME_GREETINGS = {
+    lateNight: 'still up? 🌙',
+    morning: 'good morning! ☀️',
+    noon: 'lunch time? 🍚',
+    afternoon: 'hey~ ☕',
+    evening: 'good evening! 🌆',
+    night: 'sleepy~ 🌙',
+  };
+
+  const getGreeting = () => TIME_GREETINGS[currentTimeSlot()];
+
   function getThoughts(category) {
     const petThoughts = PET_THOUGHTS[currentPet] || PET_THOUGHTS.cat;
     const list = petThoughts[category] || petThoughts.idle;
-    return list[Math.floor(Math.random() * list.length)];
+    // 멍하니 있을 때만 시간대 대사를 섞는다. 클릭/추격/댄스 반응은 시간과 무관하다.
+    const pool = category === 'idle' ? list.concat(TIME_THOUGHTS[currentTimeSlot()]) : list;
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   function showThought(text) {
@@ -232,6 +306,14 @@
     mouseX = e.clientX;
     mouseY = e.clientY;
     lastMouseMoveTime = Date.now();
+
+    if (isDraggingHouse) {
+      cushionX = e.clientX - houseDragOffsetX;
+      if (Math.abs(cushionX - houseDragStartX) > CUSHION_DRAG_THRESHOLD) houseDragMoved = true;
+      applyCushionPosition();
+      return;
+    }
+
     if (isDragging) {
       x = e.clientX - dragOffsetX;
       y = e.clientY - dragOffsetY;
@@ -263,10 +345,14 @@
     e.preventDefault();
   });
 
-  // 집 클릭으로 토글
-  house.addEventListener('click', (e) => {
-    e.stopPropagation();
-    e.preventDefault();
+  // ============ 방석 이동 ============
+  const CUSHION_DRAG_THRESHOLD = 4; // 이 이상 움직이면 토글이 아니라 이동으로 본다
+  let isDraggingHouse = false;
+  let houseDragOffsetX = 0;
+  let houseDragStartX = 0;
+  let houseDragMoved = false;
+
+  function toggleAtHome() {
     const next = !isAtHome;
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       // storage 에 쓰면 onChanged 리스너가 setAtHome 을 호출
@@ -274,6 +360,39 @@
     } else {
       setAtHome(next);
     }
+  }
+
+  house.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    isDraggingHouse = true;
+    houseDragMoved = false;
+    houseDragStartX = homeLeft();
+    houseDragOffsetX = e.clientX - houseDragStartX;
+    house.classList.add('dragging');
+    e.preventDefault();
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!isDraggingHouse) return;
+    isDraggingHouse = false;
+    house.classList.remove('dragging');
+
+    if (!houseDragMoved) {
+      toggleAtHome();
+      return;
+    }
+
+    cushionX = homeLeft(); // 창 밖으로 끌고 나간 값은 놓는 시점에 정리
+    applyCushionPosition();
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ cushionX });
+    }
+  });
+
+  // 드래그 후의 click 이 페이지로 새어나가지 않게 차단
+  house.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
   });
 
   document.addEventListener('mouseup', (e) => {
@@ -345,9 +464,19 @@
   // ============ 상태 전이 ============
   function pickRandomTarget() {
     const margin = 40;
-    // 방석 영역(우측 하단)을 가급적 피해서 배회한다
-    const safeMax = Math.max(margin + 50, homeLeft() - PET_W - 10);
-    targetX = margin + Math.random() * (safeMax - margin);
+    const maxX = Math.max(margin, window.innerWidth - PET_W - margin);
+    let target = margin + Math.random() * (maxX - margin);
+
+    // 목적지가 방석과 겹치면 가까운 쪽 바깥으로 밀어낸다
+    const cushionLeft = homeLeft();
+    const cushionRight = cushionLeft + CUSHION_W;
+    if (target + PET_W > cushionLeft && target < cushionRight) {
+      target = target + PET_W / 2 < (cushionLeft + cushionRight) / 2
+        ? cushionLeft - PET_W - 10
+        : cushionRight + 10;
+    }
+
+    targetX = Math.min(maxX, Math.max(margin, target));
   }
 
   function chooseNextAction() {
@@ -384,7 +513,17 @@
   }
 
   // ============ 메인 루프 ============
+  let rafId = 0;
+
+  function scheduleUpdate() {
+    if (rafId) return;
+    rafId = requestAnimationFrame(update);
+  }
+
   function update() {
+    rafId = 0;
+    if (isDevToolsOpen) return; // 개발자도구가 열려 있는 동안은 루프 자체를 멈춘다
+
     stateTimer--;
 
     if (isAtHome) {
@@ -403,7 +542,7 @@
       pet.dataset.facing = facing; // 데이터 속성 추가
       pet.dataset.state = 'sleeping';
 
-      requestAnimationFrame(update);
+      scheduleUpdate();
       return;
     }
 
@@ -517,15 +656,65 @@
 
     pet.dataset.state = state;
 
-    requestAnimationFrame(update);
+    scheduleUpdate();
   }
 
-  update();
+  scheduleUpdate();
+
+  // ============ 개발자도구 감지 ============
+  // 도킹된 devtools 는 뷰포트를 잘라내므로 outer/inner 차이로 판별한다.
+  // 별도 창으로 띄운 devtools 는 뷰포트가 그대로라 감지되지 않는다.
+  //
+  // 임계값을 고정하면 브라우저 크롬 높이(OS, 북마크바 유무)에 따라 빗나간다.
+  // 닫혀 있는 동안 관측된 최소 차이를 기준으로 잡고, 거기서 벌어지는 양으로 판단한다.
+  const DEVTOOLS_GROWTH = 100;
+  let baseDeltaW = Infinity;
+  let baseDeltaH = Infinity;
+
+  function syncDevToolsState() {
+    const deltaW = window.outerWidth - window.innerWidth;
+    const deltaH = window.outerHeight - window.innerHeight;
+    if (!isDevToolsOpen) {
+      // 열린 뒤에 기준이 따라 올라가면 영영 못 닫힌 걸로 본다
+      baseDeltaW = Math.min(baseDeltaW, deltaW);
+      baseDeltaH = Math.min(baseDeltaH, deltaH);
+    }
+
+    // 절대 하한선은 "페이지를 열었을 때 이미 devtools 가 켜져 있던" 경우의 보루다.
+    // 그때는 기준선이 devtools 포함값으로 잡혀서 증가분만으로는 영영 감지되지 않는다.
+    // 브라우저 크롬은 북마크바를 켜도 세로 200 / 가로 40 을 넘지 않는다.
+    const open =
+      deltaW - baseDeltaW > DEVTOOLS_GROWTH ||
+      deltaH - baseDeltaH > DEVTOOLS_GROWTH ||
+      deltaW > 200 ||
+      deltaH > 300;
+    if (open === isDevToolsOpen) return;
+
+    isDevToolsOpen = open;
+    pet.classList.toggle('devtools-hidden', open);
+    house.classList.toggle('devtools-hidden', open);
+
+    if (open) {
+      // 이미 떠 있는 파티클은 펫과 무관하게 남으므로 같이 치운다
+      document.querySelectorAll('.zzz-particle, .heart-particle').forEach((el) => el.remove());
+      isDragging = false;
+      isDraggingHouse = false;
+      pet.classList.remove('dragging');
+      house.classList.remove('dragging');
+    } else {
+      scheduleUpdate();
+    }
+  }
+
+  syncDevToolsState();
+  setInterval(syncDevToolsState, 1000);
 
   window.addEventListener('resize', () => {
+    syncDevToolsState();
+    applyCushionPosition();
     if (y > groundY()) y = groundY();
     if (x > window.innerWidth - PET_W) x = window.innerWidth - PET_W;
   });
 
-  setTimeout(() => showThought('hi! 👋'), 500);
+  setTimeout(() => showThought(getGreeting()), 500);
 })();

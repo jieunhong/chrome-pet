@@ -21,12 +21,13 @@
 /* ============ 펫 방석 ============ */
 #pet-house {
   position: fixed;
-  right: 20px;
+  /* left 는 JS 가 사용자 지정 위치로 세팅한다 */
+  left: 0;
   bottom: 20px;
   width: 100px;
   height: 100px;
   z-index: 2147483646;
-  cursor: pointer;
+  cursor: grab;
   user-select: none;
   -webkit-user-select: none;
   pointer-events: auto;
@@ -40,6 +41,12 @@
 
 #pet-house:active {
   transform: translateY(-1px) scale(0.98);
+}
+
+#pet-house.dragging {
+  cursor: grabbing;
+  transform: none;
+  transition: none;
 }
 
 #pet-house svg {
@@ -74,6 +81,12 @@
   display: none;
 }
 
+/* 개발자도구가 열려 있는 동안 숨김 (애니메이션 루프도 함께 정지된다) */
+#screen-pet.devtools-hidden,
+#pet-house.devtools-hidden {
+  display: none;
+}
+
 #screen-pet.dragging {
   cursor: grabbing;
 }
@@ -94,6 +107,12 @@
   height: 100%;
   overflow: visible;
   display: block;
+}
+
+/* 도트 테마는 안티에일리어싱으로 픽셀 경계가 뭉개지면 안 된다 */
+#screen-pet[data-theme="pixel"] .pet-inner,
+#pet-house[data-theme="pixel"] svg {
+  shape-rendering: crispEdges;
 }
 
 /* 말풍선 */
@@ -450,6 +469,31 @@
   animation: sleeping-body 5s ease-in-out infinite;
 }
 
+/*
+ * 도트 스프라이트는 몸통이 이미 납작한 사각 덩어리라 일반 테마와 같은 비율(0.85)로
+ * 누르면 지나치게 납작해진다. 세로 배율만 1.5배로 키운다.
+ */
+#screen-pet[data-theme="pixel"][data-state="sleeping"] .pet-body-shape {
+  /* 기준점이 center bottom 이라 늘린 만큼 몸이 위로만 자란다. 내려서 머리와 다시 맞춘다 */
+  transform: translateY(6px) scale(1.1, 1.275);
+  animation-name: sleeping-body-pixel;
+}
+
+/*
+ * 도트는 몸통을 1.5배로 늘린 만큼(약 12px) 얼굴이 몸에 파묻힌다. 그만큼 위로 올려 띄운다.
+ * 가로는 일반 테마 값을 그대로 쓴다 — 말티즈처럼 머리가 몸 중앙에 얹힌 펫은 옆으로 밀면 몸을 벗어난다.
+ */
+#screen-pet[data-theme="pixel"][data-state="sleeping"] .pet-head {
+  transform: translate(-10px, 0) rotate(-25deg);
+  animation-name: sleeping-head-pixel;
+}
+
+/* 흰 말티즈는 머리가 몸 위에 그대로 얹힌 구조라 같은 값으로 올리면 얼굴이 몸에서 떠 버린다 */
+#screen-pet[data-theme="pixel"][data-pet="maltese_white"][data-state="sleeping"] .pet-head {
+  transform: translate(-10px, 6px) rotate(-25deg);
+  animation-name: sleeping-head-pixel-maltese;
+}
+
 #screen-pet[data-state="sleeping"] .pet-head {
   /* 머리 그룹 전체를 몸쪽으로 이동 (이제 얼굴 조각들이 함께 움직임) */
   transform: translate(-10px, 12px) rotate(-20deg);
@@ -464,6 +508,15 @@
   /* 자는 동안은 깜빡이지 않도록 애니메이션 중지 */
   animation: none !important;
   /* 눈 감기 */
+}
+
+/*
+ * 도트 눈은 4x4 rect 라 scaleY(0.1) 이면 0.4px 이 되고, crispEdges 때문에 아예 사라진다.
+ * 일반 테마는 타원이라 얇은 선으로 남지만 도트는 안 남는다.
+ * 대신 가로로 늘리고 절반 높이로 눌러 감은 눈 선을 만든다.
+ */
+#screen-pet[data-theme="pixel"][data-state="sleeping"] .pet-eye {
+  transform: scaleX(2) scaleY(0.5);
 }
 
 #screen-pet[data-state="sleeping"] .pet-leg {
@@ -490,6 +543,12 @@
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
 }
 
+/* 도트 공룡만 고개를 덜 숙여 머리를 몸에서 떼어놓는다 (transform-origin 은 위 규칙 것을 그대로 쓴다) */
+#screen-pet[data-theme="pixel"][data-pet="dino"][data-state="sleeping"] .pet-head {
+  transform: rotate(-10deg) translate(-3px, 2px);
+  animation-name: sleeping-head-dino-pixel;
+}
+
 @keyframes sleeping-head-dino {
 
   0%,
@@ -499,6 +558,19 @@
 
   50% {
     transform: rotate(-12deg) translate(-4px, 10px);
+  }
+}
+
+/* sleeping-head-dino 에서 숙임과 아래 이동만 줄인 것 */
+@keyframes sleeping-head-dino-pixel {
+
+  0%,
+  100% {
+    transform: rotate(-10deg) translate(-3px, 2px);
+  }
+
+  50% {
+    transform: rotate(-7deg) translate(-2px, 4px);
   }
 }
 
@@ -514,6 +586,19 @@
   }
 }
 
+/* sleeping-body 의 세로 배율만 1.5배 (0.85 -> 1.275, 0.81 -> 1.215) + 6px 아래로 */
+@keyframes sleeping-body-pixel {
+
+  0%,
+  100% {
+    transform: translateY(6px) scale(1.1, 1.275);
+  }
+
+  50% {
+    transform: translateY(6px) scale(1.14, 1.215);
+  }
+}
+
 @keyframes sleeping-head {
 
   0%,
@@ -523,6 +608,32 @@
 
   50% {
     transform: translate(-9px, 14px) rotate(-22deg);
+  }
+}
+
+/* sleeping-head 에서 아래로 파고드는 12px 만 뺀 것 (가로/회전/숨쉬기는 동일) */
+@keyframes sleeping-head-pixel {
+
+  0%,
+  100% {
+    transform: translate(-10px, 0) rotate(-25deg);
+  }
+
+  50% {
+    transform: translate(-9px, 2px) rotate(-22deg);
+  }
+}
+
+/* 흰 말티즈만 절반(6px)만 올린 것 */
+@keyframes sleeping-head-pixel-maltese {
+
+  0%,
+  100% {
+    transform: translate(-10px, 6px) rotate(-25deg);
+  }
+
+  50% {
+    transform: translate(-9px, 8px) rotate(-22deg);
   }
 }
 
