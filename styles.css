@@ -534,6 +534,12 @@
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
 }
 
+/* 도트 공룡만 고개를 덜 숙여 머리를 몸에서 떼어놓는다 (transform-origin 은 위 규칙 것을 그대로 쓴다) */
+#screen-pet[data-theme="pixel"][data-pet="dino"][data-state="sleeping"] .pet-head {
+  transform: rotate(-10deg) translate(-3px, 2px);
+  animation-name: sleeping-head-dino-pixel;
+}
+
 @keyframes sleeping-head-dino {
 
   0%,
@@ -543,6 +549,19 @@
 
   50% {
     transform: rotate(-12deg) translate(-4px, 10px);
+  }
+}
+
+/* sleeping-head-dino 에서 숙임과 아래 이동만 줄인 것 */
+@keyframes sleeping-head-dino-pixel {
+
+  0%,
+  100% {
+    transform: rotate(-10deg) translate(-3px, 2px);
+  }
+
+  50% {
+    transform: rotate(-7deg) translate(-2px, 4px);
   }
 }
 
