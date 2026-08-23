@@ -74,7 +74,7 @@
     if (!window.PET_SVGS || !window.PET_SVGS[petType]) return;
     if (currentPet === petType && pet.dataset.pet === petType && pet.querySelector('.pet-inner')) {
       // 이미 해당 펫이면 말풍선만 띄우기
-      showThought('hi! 👋');
+      showThought(getGreeting());
       return;
     }
 
@@ -83,7 +83,7 @@
     pet.innerHTML = buildPetHTML(petType, currentName);
     // 다시 참조 잡기
     thought = pet.querySelector('.pet-thought');
-    showThought('hi! 👋');
+    showThought(getGreeting());
   }
 
   function setName(name) {
@@ -121,7 +121,7 @@
         ? exitLeft
         : Math.min(window.innerWidth - PET_W, homeLeft() + CUSHION_W + 10);
       y = groundY();
-      showThought('hi! 👋');
+      showThought(getGreeting());
     }
   }
 
@@ -202,10 +202,43 @@
     },
   };
 
+  // 사용자 로컬 시간 기준. 탭을 오래 켜둬도 시간이 넘어가면 반영되도록 부를 때마다 계산한다.
+  function currentTimeSlot() {
+    const hour = new Date().getHours();
+    if (hour < 5) return 'lateNight';
+    if (hour < 11) return 'morning';
+    if (hour < 14) return 'noon';
+    if (hour < 18) return 'afternoon';
+    if (hour < 22) return 'evening';
+    return 'night';
+  }
+
+  const TIME_THOUGHTS = {
+    lateNight: ['🌙', '😴', '🥱', '🛌', 'still up?', 'go sleep~', 'zzZ...', 'so late…', 'sleepy…'],
+    morning: ['☀️', '🌅', '🥐', '🌤️', 'morning~', 'good morning!', 'stretch~', 'rise n shine', 'breakfast?'],
+    noon: ['🍚', '😋', '🍜', '🥪', '🍙', 'lunch time!', 'hungry…', 'nom nom', 'feed me~'],
+    afternoon: ['☕', '🥱', '🍪', '🌤️', 'sleepy…', 'break time~', 'snack?', 'so slow…', 'yawn~'],
+    evening: ['🌆', '🍽️', '🌇', '🛋️', '✨', 'good evening~', 'dinner?', 'cozy~', 'nice day?'],
+    night: ['🌙', '⭐', '💤', '🌠', 'bedtime~', 'sleepy…', 'good night', 'nighty~', 'zzZ'],
+  };
+
+  const TIME_GREETINGS = {
+    lateNight: 'still up? 🌙',
+    morning: 'good morning! ☀️',
+    noon: 'lunch time? 🍚',
+    afternoon: 'hey~ ☕',
+    evening: 'good evening! 🌆',
+    night: 'sleepy~ 🌙',
+  };
+
+  const getGreeting = () => TIME_GREETINGS[currentTimeSlot()];
+
   function getThoughts(category) {
     const petThoughts = PET_THOUGHTS[currentPet] || PET_THOUGHTS.cat;
     const list = petThoughts[category] || petThoughts.idle;
-    return list[Math.floor(Math.random() * list.length)];
+    // 멍하니 있을 때만 시간대 대사를 섞는다. 클릭/추격/댄스 반응은 시간과 무관하다.
+    const pool = category === 'idle' ? list.concat(TIME_THOUGHTS[currentTimeSlot()]) : list;
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   function showThought(text) {
@@ -644,5 +677,5 @@
     if (x > window.innerWidth - PET_W) x = window.innerWidth - PET_W;
   });
 
-  setTimeout(() => showThought('hi! 👋'), 500);
+  setTimeout(() => showThought(getGreeting()), 500);
 })();
