@@ -21,12 +21,13 @@
 /* ============ 펫 방석 ============ */
 #pet-house {
   position: fixed;
-  right: 20px;
+  /* left 는 JS 가 사용자 지정 위치로 세팅한다 */
+  left: 0;
   bottom: 20px;
   width: 100px;
   height: 100px;
   z-index: 2147483646;
-  cursor: pointer;
+  cursor: grab;
   user-select: none;
   -webkit-user-select: none;
   pointer-events: auto;
@@ -40,6 +41,12 @@
 
 #pet-house:active {
   transform: translateY(-1px) scale(0.98);
+}
+
+#pet-house.dragging {
+  cursor: grabbing;
+  transform: none;
+  transition: none;
 }
 
 #pet-house svg {
