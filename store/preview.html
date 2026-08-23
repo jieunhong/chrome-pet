@@ -161,8 +161,11 @@
     <br>다시 굽기: <code>./store/make.sh</code>
   </p>
 
-  <h2>아이콘 후보 — 128 × 128</h2>
-  <p class="sub">스토어는 128, 확장 관리 페이지는 48, 툴바는 16으로 씁니다. 16에서 뭉개지지 않는 게 제일 중요합니다.</p>
+  <h2>아이콘</h2>
+  <p class="sub">
+    스토어는 128, 확장 관리 페이지는 48, 툴바는 16으로 씁니다.
+    세 크기 모두 <code>icons/</code> 에 반영돼 있고, 축소본이 아니라 각 크기로 직접 렌더한 것입니다.
+  </p>
   <div class="bar" id="chipBar"><span class="sub">배경</span></div>
   <div class="icons" id="icons"></div>
 
@@ -175,12 +178,8 @@
   <div class="shots" id="tile"></div>
 
   <script>
-    const ICONS = [
-      ['icon-a', 'A. 햄스터 얼굴', '이목구비를 크게 다시 그림. 16px 에서 가장 잘 버팀'],
-      ['icon-b', 'B. 방석 위 낮잠', '확장의 시그니처 조합. 요소가 많아 작아지면 뭉개짐'],
-      ['icon-c', 'C. 도트 햄스터', '실제 도트 테마 격자 그대로. 각져서 작아도 형태가 남음'],
-      ['icon-d', 'D. 햄스터 전신', '배경 원 없이 투명. 툴바 배경색과 그대로 섞임'],
-    ];
+    // 크기별로 따로 렌더한 파일을 각각 제 크기로 보여준다
+    const ICONS = [[128, 'icon128'], [48, 'icon48'], [16, 'icon16']];
     const SHOTS = [
       ['shot-1', '1. 다섯 마리 소개'],
       ['shot-2', '2. 두 가지 아트 스타일'],
@@ -190,18 +189,18 @@
 
     const bust = `?t=${performance.now() | 0}`;
 
-    document.getElementById('icons').innerHTML = ICONS.map(([f, name, note]) => `
+    document.getElementById('icons').innerHTML = `
       <div class="cand">
-        <div class="name">${name}</div>
-        <div class="note">${note}</div>
+        <div class="name">햄스터 전신 · 라운드 사각 베이지</div>
+        <div class="note">manifest 가 참조하는 세 크기</div>
         <div class="sizes">
-          ${[128, 48, 16].map((s) => `
+          ${ICONS.map(([s, f]) => `
             <figure class="s${s}">
-              <img src="out/${f}.png${bust}" alt="${name} ${s}px">
+              <img src="out/${f}.png${bust}" alt="icon ${s}px">
               <figcaption>${s}px</figcaption>
             </figure>`).join('')}
         </div>
-      </div>`).join('');
+      </div>`;
 
     document.getElementById('shots').innerHTML = SHOTS.map(([f, name]) => `
       <div class="shot">
