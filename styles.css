@@ -479,6 +479,21 @@
   animation-name: sleeping-body-pixel;
 }
 
+/*
+ * 도트는 몸통을 1.5배로 늘린 만큼(약 12px) 얼굴이 몸에 파묻힌다. 그만큼 위로 올려 띄운다.
+ * 가로는 일반 테마 값을 그대로 쓴다 — 말티즈처럼 머리가 몸 중앙에 얹힌 펫은 옆으로 밀면 몸을 벗어난다.
+ */
+#screen-pet[data-theme="pixel"][data-state="sleeping"] .pet-head {
+  transform: translate(-10px, 0) rotate(-25deg);
+  animation-name: sleeping-head-pixel;
+}
+
+/* 흰 말티즈는 머리가 몸 위에 그대로 얹힌 구조라 같은 값으로 올리면 얼굴이 몸에서 떠 버린다 */
+#screen-pet[data-theme="pixel"][data-pet="maltese_white"][data-state="sleeping"] .pet-head {
+  transform: translate(-10px, 6px) rotate(-25deg);
+  animation-name: sleeping-head-pixel-maltese;
+}
+
 #screen-pet[data-state="sleeping"] .pet-head {
   /* 머리 그룹 전체를 몸쪽으로 이동 (이제 얼굴 조각들이 함께 움직임) */
   transform: translate(-10px, 12px) rotate(-20deg);
@@ -565,6 +580,32 @@
 
   50% {
     transform: translate(-9px, 14px) rotate(-22deg);
+  }
+}
+
+/* sleeping-head 에서 아래로 파고드는 12px 만 뺀 것 (가로/회전/숨쉬기는 동일) */
+@keyframes sleeping-head-pixel {
+
+  0%,
+  100% {
+    transform: translate(-10px, 0) rotate(-25deg);
+  }
+
+  50% {
+    transform: translate(-9px, 2px) rotate(-22deg);
+  }
+}
+
+/* 흰 말티즈만 절반(6px)만 올린 것 */
+@keyframes sleeping-head-pixel-maltese {
+
+  0%,
+  100% {
+    transform: translate(-10px, 6px) rotate(-25deg);
+  }
+
+  50% {
+    transform: translate(-9px, 8px) rotate(-22deg);
   }
 }
 
