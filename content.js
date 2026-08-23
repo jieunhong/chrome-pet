@@ -31,7 +31,10 @@
   const CUSHION_MARGIN_RIGHT = 20;
   const CUSHION_MARGIN_BOTTOM = 20;
 
-  const homeLeft = () => window.innerWidth - CUSHION_W - CUSHION_MARGIN_RIGHT;
+  // 사용자가 지정한 방석 위치(왼쪽 기준 px). 저장값은 그대로 두고 화면에 그릴 때만 clamp 한다.
+  let cushionX = window.innerWidth - CUSHION_W - CUSHION_MARGIN_RIGHT;
+
+  const homeLeft = () => Math.min(Math.max(cushionX, 0), window.innerWidth - CUSHION_W);
   const homeTop = () => window.innerHeight - CUSHION_H - CUSHION_MARGIN_BOTTOM;
   // 펫이 방석 위에 자연스럽게 앉아 있도록 좌표 조정
   const petHomeX = () => homeLeft() + (-10) + (CUSHION_W - PET_W) / 2;
@@ -55,9 +58,14 @@
   // 펫 방석 DOM
   const house = document.createElement('div');
   house.id = 'pet-house';
-  house.title = '방석 (클릭하여 펫을 위에서 재우기)';
+  house.title = '방석 (클릭: 펫 재우기 / 드래그: 위치 옮기기)';
   house.innerHTML = window.HOUSE_SVG || '';
   document.body.appendChild(house);
+
+  function applyCushionPosition() {
+    house.style.left = `${homeLeft()}px`;
+  }
+  applyCushionPosition();
 
   let thought = pet.querySelector('.pet-thought');
 
@@ -106,8 +114,11 @@
       stateTimer = 60;
       vx = 0;
       vy = 0;
-      // 집 왼쪽 옆으로 살짝 빠져나오기
-      x = Math.max(20, homeLeft() - PET_W - 10);
+      // 방석 옆으로 빠져나오기 (왼쪽에 자리가 없으면 오른쪽으로)
+      const exitLeft = homeLeft() - PET_W - 10;
+      x = exitLeft >= 0
+        ? exitLeft
+        : Math.min(window.innerWidth - PET_W, homeLeft() + CUSHION_W + 10);
       y = groundY();
       showThought('hi! 👋');
     }
@@ -115,7 +126,11 @@
 
   // storage 에서 펫 타입 및 이름 읽어오기 및 리스너 등록
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet', 'petName', 'atHome'], (result) => {
+    chrome.storage.local.get(['pet', 'petName', 'atHome', 'cushionX'], (result) => {
+      if (typeof result.cushionX === 'number') {
+        cushionX = result.cushionX;
+        applyCushionPosition();
+      }
       if (result.petName) {
         currentName = result.petName;
         setName(currentName);
@@ -131,6 +146,10 @@
     // 팝업에서 storage 변경 시 실시간 반영
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local') {
+        if (changes.cushionX) {
+          cushionX = changes.cushionX.newValue;
+          applyCushionPosition();
+        }
         if (changes.pet) setPet(changes.pet.newValue);
         if (changes.petName) setName(changes.petName.newValue);
         if (changes.atHome) setAtHome(!!changes.atHome.newValue);
@@ -232,6 +251,14 @@
     mouseX = e.clientX;
     mouseY = e.clientY;
     lastMouseMoveTime = Date.now();
+
+    if (isDraggingHouse) {
+      cushionX = e.clientX - houseDragOffsetX;
+      if (Math.abs(cushionX - houseDragStartX) > CUSHION_DRAG_THRESHOLD) houseDragMoved = true;
+      applyCushionPosition();
+      return;
+    }
+
     if (isDragging) {
       x = e.clientX - dragOffsetX;
       y = e.clientY - dragOffsetY;
@@ -263,10 +290,14 @@
     e.preventDefault();
   });
 
-  // 집 클릭으로 토글
-  house.addEventListener('click', (e) => {
-    e.stopPropagation();
-    e.preventDefault();
+  // ============ 방석 이동 ============
+  const CUSHION_DRAG_THRESHOLD = 4; // 이 이상 움직이면 토글이 아니라 이동으로 본다
+  let isDraggingHouse = false;
+  let houseDragOffsetX = 0;
+  let houseDragStartX = 0;
+  let houseDragMoved = false;
+
+  function toggleAtHome() {
     const next = !isAtHome;
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       // storage 에 쓰면 onChanged 리스너가 setAtHome 을 호출
@@ -274,6 +305,39 @@
     } else {
       setAtHome(next);
     }
+  }
+
+  house.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    isDraggingHouse = true;
+    houseDragMoved = false;
+    houseDragStartX = homeLeft();
+    houseDragOffsetX = e.clientX - houseDragStartX;
+    house.classList.add('dragging');
+    e.preventDefault();
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!isDraggingHouse) return;
+    isDraggingHouse = false;
+    house.classList.remove('dragging');
+
+    if (!houseDragMoved) {
+      toggleAtHome();
+      return;
+    }
+
+    cushionX = homeLeft(); // 창 밖으로 끌고 나간 값은 놓는 시점에 정리
+    applyCushionPosition();
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ cushionX });
+    }
+  });
+
+  // 드래그 후의 click 이 페이지로 새어나가지 않게 차단
+  house.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
   });
 
   document.addEventListener('mouseup', (e) => {
@@ -345,9 +409,19 @@
   // ============ 상태 전이 ============
   function pickRandomTarget() {
     const margin = 40;
-    // 방석 영역(우측 하단)을 가급적 피해서 배회한다
-    const safeMax = Math.max(margin + 50, homeLeft() - PET_W - 10);
-    targetX = margin + Math.random() * (safeMax - margin);
+    const maxX = Math.max(margin, window.innerWidth - PET_W - margin);
+    let target = margin + Math.random() * (maxX - margin);
+
+    // 목적지가 방석과 겹치면 가까운 쪽 바깥으로 밀어낸다
+    const cushionLeft = homeLeft();
+    const cushionRight = cushionLeft + CUSHION_W;
+    if (target + PET_W > cushionLeft && target < cushionRight) {
+      target = target + PET_W / 2 < (cushionLeft + cushionRight) / 2
+        ? cushionLeft - PET_W - 10
+        : cushionRight + 10;
+    }
+
+    targetX = Math.min(maxX, Math.max(margin, target));
   }
 
   function chooseNextAction() {
@@ -523,6 +597,7 @@
   update();
 
   window.addEventListener('resize', () => {
+    applyCushionPosition();
     if (y > groundY()) y = groundY();
     if (x > window.innerWidth - PET_W) x = window.innerWidth - PET_W;
   });
