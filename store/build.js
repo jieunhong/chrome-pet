@@ -69,7 +69,7 @@ const house = ({ theme = 'normal', size = 200 }) => `
 
 /*
  * content.js 의 petHomeX/petHomeY 와 같은 배치.
- * CUSHION 100x100, PET 80x80 기준으로 펫은 방석 왼쪽 끝에서 시작하고 위에서 5 만큼 내려온다.
+ * CUSHION 100x100, PET 80x80 기준으로 펫은 방석 가로 가운데(+10), 위에서 5 만큼 내려온다.
  * 눈대중으로 얹으면 스토어 이미지에서만 펫이 방석 위에 떠 있게 된다.
  */
 const petOnBed = ({ theme = 'normal', name = 'cat', bed = 240 }) => {
@@ -80,7 +80,7 @@ const petOnBed = ({ theme = 'normal', name = 'cat', bed = 240 }) => {
          style="position:absolute; inset:0; left:0; bottom:auto; width:100%; height:100%">
       ${houseSvg(theme)}
     </div>
-    <div style="position:absolute; left:0; top:${5 * k}px">
+    <div style="position:absolute; left:${10 * k}px; top:${5 * k}px">
       ${pet({ theme, name, size: 80 * k, state: 'sleeping' })}
     </div>
   </div>`;
