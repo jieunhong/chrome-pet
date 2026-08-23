@@ -23,6 +23,6 @@ render() {
   printf '  %-10s %s\n' "$1.png" "$(sips -g pixelWidth -g pixelHeight "store/out/$1.png" | tr -d ' \n' | sed 's/.*pixelWidth:\([0-9]*\)pixelHeight:\([0-9]*\)/\1x\2/')"
 }
 
-for i in a b c d; do render "icon-$i" 128 128; done
+for sz in 128 48 16; do render "icon$sz" "$sz" "$sz"; done
 for i in 1 2 3 4; do render "shot-$i" 1280 800; done
 render tile 440 280

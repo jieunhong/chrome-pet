@@ -106,82 +106,27 @@ const page = ({ w, h, css, body }) => `<!DOCTYPE html>
 <body>${body}</body>
 </html>`;
 
-// ============ 아이콘 후보 (128x128) ============
+// ============ 아이콘 (128 / 48 / 16) ============
 
-const iconPage = (body) => page({
-  w: 128, h: 128,
-  css: '.icon { width: 128px; height: 128px; display: block; }',
+// 크기별로 직접 렌더해야 작은 아이콘이 선명하다. 128 PNG 를 줄이면 뭉개진다.
+const iconPage = (body, size = 128) => page({
+  w: size, h: size,
+  css: `.icon { width: ${size}px; height: ${size}px; display: block; }`,
   body: `<svg class="icon" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">${body}</svg>`,
 });
 
 const CREAM = '#ffe8d6';
 
-// 아이콘 주인공. 바꾸려면 여기만 고치면 B/C/D 가 따라간다 (A 는 손으로 그린 얼굴이라 별도).
 const ICON_PET = 'hamster';
 
-// 스프라이트에서 머리 그룹만 떼어낸다 (얼굴 클로즈업용)
-const headGroup = (theme, name) => {
-  const svg = petSvg(theme, name);
-  return svg.slice(svg.indexOf('<g class="pet-head">'), svg.lastIndexOf('</g>') + 4);
-};
-
-// A. 햄스터 얼굴 클로즈업 — 16px 로 줄여도 형태가 남도록 이목구비를 크게 다시 그렸다
-const iconA = iconPage(`
-  <circle cx="64" cy="64" r="63" fill="${CREAM}"/>
-  <circle cx="35" cy="35" r="14" fill="#c89668"/>
-  <circle cx="93" cy="35" r="14" fill="#c89668"/>
-  <circle cx="35" cy="36" r="7.5" fill="#ff9a9a"/>
-  <circle cx="93" cy="36" r="7.5" fill="#ff9a9a"/>
-  <circle cx="64" cy="68" r="41" fill="#f4d19b"/>
-  <ellipse cx="32" cy="78" rx="14" ry="11" fill="#e8c89a"/>
-  <ellipse cx="96" cy="78" rx="14" ry="11" fill="#e8c89a"/>
-  <ellipse cx="51" cy="63" rx="5.5" ry="7" fill="#1a0e08"/>
-  <ellipse cx="77" cy="63" rx="5.5" ry="7" fill="#1a0e08"/>
-  <circle cx="52.8" cy="60" r="2" fill="#fff"/>
-  <circle cx="78.8" cy="60" r="2" fill="#fff"/>
-  <ellipse cx="64" cy="79" rx="4.5" ry="3.2" fill="#7a2d2d"/>
-  <rect x="59" y="84" width="10" height="10" rx="1.6" fill="#fff" stroke="#d4b088" stroke-width="1.2"/>
-  <line x1="64" y1="84" x2="64" y2="94" stroke="#d4b088" stroke-width="1.2"/>
-`);
-
-// B. 방석 위에 웅크린 고양이 — 확장의 시그니처 조합
-const iconB = iconPage(`
-  <circle cx="64" cy="64" r="63" fill="${CREAM}"/>
-  <g transform="translate(64 78) scale(0.66) translate(-50 -50)">${houseSvg('normal')}</g>
-  <g transform="translate(64 56) scale(1.9) translate(-60 -42)">${headGroup('normal', ICON_PET)}</g>
-  <text x="92" y="40" font-size="24" font-family="system-ui" fill="#a98a6e" font-weight="800">z</text>
-  <text x="104" y="24" font-size="16" font-family="system-ui" fill="#c0a288" font-weight="800">z</text>
-`);
-
-// C. 도트 고양이 얼굴 — 실제 도트 테마 격자를 그대로 확대
-const catDef = assets.PIXEL_PET_DEFS[ICON_PET];
-// 머리 격자 크기에서 칸 크기와 여백을 역산한다. 격자 칸수를 상수로 박으면 스프라이트를 고칠 때 잘린다.
-const HEAD_W = Math.max(...catDef.head.rows.map((r) => r.length));
-const HEAD_H = catDef.head.rows.length;
-const CELL = (128 - 24) / Math.max(HEAD_W, HEAD_H);
-const PAD_X = (128 - HEAD_W * CELL) / 2;
-const PAD_Y = (128 - HEAD_H * CELL) / 2;
-const px = (gx) => PAD_X + (gx - catDef.head.x) * CELL;
-const py = (gy) => PAD_Y + (gy - catDef.head.y) * CELL;
-const pixelRects = (part, palette) => part.rows.map((row, ry) =>
-  [...row].map((ch, rx) => ch === '.' ? '' :
-    `<rect x="${px(part.x + rx)}" y="${py(part.y + ry)}" width="${CELL}" height="${CELL}" fill="${palette[ch]}"/>`,
-  ).join(''),
-).join('');
-const iconC = iconPage(`
-  <rect width="128" height="128" rx="26" fill="${CREAM}"/>
-  ${pixelRects(catDef.head, catDef.palette)}
-  ${pixelRects(catDef.face, catDef.palette)}
-  ${catDef.eyes.map(([x, y]) =>
-  `<rect x="${px(x)}" y="${py(y)}" width="${CELL}" height="${CELL}" fill="${catDef.palette.e}"/>`).join('')}
-`);
-
-// D. 배경 없이 고양이 전신 — 툴바에서 배경 원 없이 뜨는 쪽
-const iconD = iconPage(`
-  <g transform="translate(64 64) scale(2) translate(-46.5 -50.5)">
+// 라운드 사각 베이지 배경 + 전신. 배경 가장자리에 붙지 않도록 살짝 줄여 여백을 준다.
+const ICON_BG = CREAM;
+const iconBody = `
+  <rect width="128" height="128" rx="27" fill="${ICON_BG}"/>
+  <g transform="translate(64 66) scale(1.86) translate(-46.5 -50.5)">
     ${petSvg('normal', ICON_PET).replace(/<\/?svg[^>]*>/g, '')}
   </g>
-`);
+`;
 
 // ============ 소개 이미지 (1280x800) ============
 
@@ -413,7 +358,10 @@ fs.rmSync(BUILD, { recursive: true, force: true });
 fs.mkdirSync(BUILD, { recursive: true });
 
 const pages = {
-  'icon-a': iconA, 'icon-b': iconB, 'icon-c': iconC, 'icon-d': iconD,
+  // manifest 가 참조하는 세 크기를 각각 네이티브로 렌더한다
+  'icon128': iconPage(iconBody, 128),
+  'icon48': iconPage(iconBody, 48),
+  'icon16': iconPage(iconBody, 16),
   'shot-1': shot1, 'shot-2': shot2, 'shot-3': shot3, 'shot-4': shot4,
   'tile': tile,
 };
