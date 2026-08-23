@@ -137,6 +137,11 @@
     <div class="row"><span>devtools-hidden</span><span id="p-hidden">—</span></div>
     <div class="row"><span>rAF running</span><span id="p-raf">—</span></div>
     <div class="row"><span>time slot</span><span id="p-slot">—</span></div>
+    <div class="row"><span>theme</span><span id="p-theme">—</span></div>
+    <select id="p-themePick">
+      <option value="normal">테마: 일반</option>
+      <option value="pixel">테마: 도트</option>
+    </select>
     <select id="p-hour">
       <option value="">실제 시각 사용</option>
       <option value="3">03시 → lateNight</option>
@@ -164,6 +169,7 @@
       <li><strong>배회 범위</strong> — 방석을 <em>왼쪽 끝</em>으로 옮기고 잠시 두세요. 펫이 왼쪽 구석에 갇히지 않고 화면 전체를 돌아다녀야 합니다 (이번에 같이 고친 부분).</li>
       <li><strong>탭 간 동기화</strong> — 이 페이지를 두 탭에 띄우고 한쪽에서 방석을 옮긴 뒤, 다른 탭을 클릭해 포커스를 주면 같은 위치로 따라와야 합니다.</li>
       <li><strong>개발자도구</strong> — <code>⌥⌘I</code> 로 devtools 를 <em>도킹된 상태</em>로 여세요. 펫과 방석이 즉시 사라지고 <code>rAF running</code> 이 <code>no</code> 로 바뀌어야 합니다. 닫으면 되살아납니다. (별도 창으로 띄우면 감지되지 않는 것이 정상입니다.)</li>
+      <li><strong>테마 전환</strong> — probe 의 테마 셀렉터로 일반/도트를 바꿔보세요. 펫과 방석이 동시에 갈아끼워지고, 걷기·꼬리·눈 깜빡임 애니메이션이 도트 버전에서도 그대로 돌아야 합니다. 이름표를 붙여둔 상태로 바꿔도 이름이 유지돼야 합니다.</li>
       <li><strong>시간대별 대사</strong> — probe 의 시간 셀렉터로 시각을 강제한 뒤, 방석을 클릭해 펫을 재웠다 깨우면 그 시간대 인사말이 나옵니다 (<code>good morning! ☀️</code>, <code>still up? 🌙</code> 등). 멍하니 두면 <code>말풍선 로그</code> 에 시간대 대사가 섞여 쌓입니다. 클릭·추격·댄스 반응은 시간과 무관하게 유지되는지도 같이 보세요.</li>
     </ol>
     <p class="sub">아래로 스크롤해도 펫은 <code>position: fixed</code> 라 화면에 붙어 있어야 합니다.</p>
@@ -237,6 +243,7 @@
   </script>
 
   <script src="pets.js"></script>
+  <script src="pets-pixel.js"></script>
   <script src="content.js"></script>
 
   <script>
@@ -310,7 +317,13 @@
         // 숨김과 루프 정지는 항상 짝이어야 한다. 어긋나면 빨갛게 표시.
         set('p-raf', running ? 'yes' : 'no', hidden === running);
         set('p-slot', slotOf(new Date().getHours()));
+        set('p-theme', pet.dataset.theme || '—');
       }, 500);
+
+      $('p-themePick').value = window.__harnessRead().theme || 'normal';
+      $('p-themePick').addEventListener('change', (e) => {
+        window.chrome.storage.local.set({ theme: e.target.value });
+      });
 
       $('p-reset').addEventListener('click', () => {
         localStorage.removeItem('screen-pet-harness');
