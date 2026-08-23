@@ -1,9 +1,42 @@
 (function () {
   const grid = document.getElementById('grid');
+  const themeTabs = document.getElementById('themeTabs');
   let currentPet = window.DEFAULT_PET || 'cat';
+  let currentTheme = window.DEFAULT_THEME || 'normal';
 
-  // 카드 생성
+  const themePets = () => window.PET_THEMES[currentTheme].pets;
+
+  // storage 저장 -> content script 가 onChanged 로 감지.
+  // onChanged 가 가끔 안 뜨는 경우가 있어 메시지로도 한 번 더 알린다.
+  function broadcast(stored, message, done) {
+    if (!chrome || !chrome.storage || !chrome.storage.local) return;
+    chrome.storage.local.set(stored, () => {
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach((tab) => {
+          if (tab.id) {
+            chrome.tabs.sendMessage(tab.id, message).catch(() => {
+              // 콘텐츠 스크립트가 없는 탭 등은 무시
+            });
+          }
+        });
+      });
+      if (done) done();
+    });
+  }
+
+  function renderThemeTabs() {
+    themeTabs.innerHTML = '';
+    window.PET_THEME_LIST.forEach((theme) => {
+      const tab = document.createElement('button');
+      tab.className = 'theme-tab' + (theme === currentTheme ? ' selected' : '');
+      tab.textContent = window.PET_THEME_NAMES[theme];
+      tab.addEventListener('click', () => selectTheme(theme));
+      themeTabs.appendChild(tab);
+    });
+  }
+
   function renderCards() {
+    const pets = themePets();
     grid.innerHTML = '';
     window.PET_LIST.forEach((petType) => {
       const card = document.createElement('button');
@@ -11,7 +44,7 @@
       card.dataset.pet = petType;
       card.innerHTML = `
         <div class="check">✓</div>
-        ${window.PET_SVGS[petType]}
+        ${pets[petType]}
         <div class="name">${window.PET_NAMES[petType]}</div>
       `;
       card.addEventListener('click', () => selectPet(petType));
@@ -19,27 +52,20 @@
     });
   }
 
+  function selectTheme(theme) {
+    if (theme === currentTheme) return;
+    currentTheme = theme;
+    renderThemeTabs();
+    renderCards();
+    broadcast({ theme }, { type: 'CHANGE_THEME', theme });
+  }
+
   function selectPet(petType) {
     currentPet = petType;
-    // UI 업데이트
     document.querySelectorAll('.pet-card').forEach((c) => {
       c.classList.toggle('selected', c.dataset.pet === petType);
     });
-    // storage 저장 (content script 에서 onChanged 로 감지해서 실시간 반영)
-    if (chrome && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ pet: petType }, () => {
-        // 메시지로도 알림 (storage onChanged 가끔 안 뜨는 경우 대비)
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach((tab) => {
-            if (tab.id) {
-              chrome.tabs.sendMessage(tab.id, { type: 'CHANGE_PET', petType }).catch(() => {
-                // 특정 탭에서 에러나도 무시 (콘텐츠 스크립트가 없는 탭 등)
-              });
-            }
-          });
-        });
-      });
-    }
+    broadcast({ pet: petType }, { type: 'CHANGE_PET', petType });
   }
 
   const nameInput = document.getElementById('petNameInput');
@@ -47,19 +73,7 @@
 
   function savePetName() {
     const name = nameInput.value.trim();
-    if (chrome && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ petName: name }, () => {
-        // 메시지로 이름 변경 알림
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach((tab) => {
-            if (tab.id) {
-              chrome.tabs.sendMessage(tab.id, { type: 'CHANGE_NAME', name }).catch(() => { });
-            }
-          });
-        });
-        alert('Name saved! 🐾');
-      });
-    }
+    broadcast({ petName: name }, { type: 'CHANGE_NAME', name }, () => alert('Name saved! 🐾'));
   }
 
   saveNameBtn.addEventListener('click', savePetName);
@@ -69,12 +83,15 @@
 
   // 저장된 값 불러와서 초기 렌더
   if (chrome && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet', 'petName'], (result) => {
+    chrome.storage.local.get(['pet', 'petName', 'theme'], (result) => {
       if (result.pet) currentPet = result.pet;
       if (result.petName) nameInput.value = result.petName;
+      if (result.theme && window.PET_THEMES[result.theme]) currentTheme = result.theme;
+      renderThemeTabs();
       renderCards();
     });
   } else {
+    renderThemeTabs();
     renderCards();
   }
 })();
