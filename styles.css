@@ -469,6 +469,16 @@
   animation: sleeping-body 5s ease-in-out infinite;
 }
 
+/*
+ * 도트 스프라이트는 몸통이 이미 납작한 사각 덩어리라 일반 테마와 같은 비율(0.85)로
+ * 누르면 지나치게 납작해진다. 세로 배율만 1.5배로 키운다.
+ */
+#screen-pet[data-theme="pixel"][data-state="sleeping"] .pet-body-shape {
+  /* 기준점이 center bottom 이라 늘린 만큼 몸이 위로만 자란다. 내려서 머리와 다시 맞춘다 */
+  transform: translateY(6px) scale(1.1, 1.275);
+  animation-name: sleeping-body-pixel;
+}
+
 #screen-pet[data-state="sleeping"] .pet-head {
   /* 머리 그룹 전체를 몸쪽으로 이동 (이제 얼굴 조각들이 함께 움직임) */
   transform: translate(-10px, 12px) rotate(-20deg);
@@ -530,6 +540,19 @@
 
   50% {
     transform: scale(1.14, 0.81);
+  }
+}
+
+/* sleeping-body 의 세로 배율만 1.5배 (0.85 -> 1.275, 0.81 -> 1.215) + 6px 아래로 */
+@keyframes sleeping-body-pixel {
+
+  0%,
+  100% {
+    transform: translateY(6px) scale(1.1, 1.275);
+  }
+
+  50% {
+    transform: translateY(6px) scale(1.14, 1.215);
   }
 }
 
