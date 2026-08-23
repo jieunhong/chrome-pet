@@ -158,9 +158,9 @@
     eyes: [[12, 9], [17, 9]],
   });
 
-  // 흰 몸에 흰 파츠라 s(연회색)로 아래쪽 음영을 줘야 형태가 읽힌다
+  // 흰 몸에 흰 파츠라 형태가 안 읽힌다. f 로 처진 귀를, s 로 아래쪽 음영을 준다
   const MALTESE_WHITE = buildPet({
-    palette: { w: '#ffffff', s: '#e9e4e9', p: '#ffccd5', b: '#ffd9e0', e: '#111111', n: '#000000' },
+    palette: { w: '#ffffff', f: '#f0e9f0', s: '#e3dbe3', p: '#ffccd5', b: '#ffd9e0', e: '#111111', n: '#000000' },
     tail: {
       x: 4, y: 12, rows: [
         '.ww',
@@ -185,19 +185,20 @@
       { x: 11, y: 16, rows: ['ww', 'pp'] },
     ],
     head: {
-      x: 7, y: 5, rows: [
-        '..wwww..',
-        '.wwwwww.',
-        'wwwwwwww',
-        'wwwwwwww',
-        'wwwwwwww',
-        'wwwwwwww',
-        '.wwwwww.',
-        '..ssss..',
+      x: 6, y: 5, rows: [
+        '...wwww...',
+        '..wwwwww..',
+        '.fwwwwwwf.',
+        'ffwwwwwwff',
+        'ffwwwwwwff',
+        'ffwwwwwwff',
+        '.fwwwwwwf.',
+        '..wwwwww..',
+        '...ssss...',
       ],
     },
-    face: { x: 7, y: 10, rows: ['.b.nn.b.'] },
-    eyes: [[9, 8], [12, 8]],
+    face: { x: 6, y: 11, rows: ['..b.nn.b..'] },
+    eyes: [[9, 9], [12, 9]],
   });
 
   const HAMSTER = buildPet({
@@ -216,17 +217,19 @@
     },
     legs: solidLegs([[8, 16], [10, 16], [13, 16], [15, 16]], ['d', 'k'], 2, 2),
     head: {
-      x: 12, y: 7, rows: [
-        'c.....c',
-        'cp...pc',
-        '.ooooo.',
-        'ooooooo',
-        'ooooooo',
-        '.ddddd.',
-        '..ooo..',
+      x: 11, y: 5, rows: [
+        '.c.....c.',
+        'ccc...ccc',
+        'cpc...cpc',
+        '.ooooooo.',
+        'ooooooooo',
+        'ooooooooo',
+        'ooooooooo',
+        '.ddddddd.',
+        '..ooooo..',
       ],
     },
-    face: { x: 12, y: 11, rows: ['.p.n.p.'] },
+    face: { x: 11, y: 11, rows: ['..p.n.p..'] },
     eyes: [[13, 10], [17, 10]],
   });
 
