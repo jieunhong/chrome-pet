@@ -662,32 +662,30 @@
   scheduleUpdate();
 
   // ============ 개발자도구 감지 ============
-  // 도킹된 devtools 는 뷰포트를 잘라내므로 outer/inner 차이로 판별한다.
-  // 별도 창으로 띄운 devtools 는 뷰포트가 그대로라 감지되지 않는다.
+  // 브라우저마다 devtools 를 열었을 때의 값이 제각각이라 두 가지 신호를 함께 본다.
   //
-  // 임계값을 고정하면 브라우저 크롬 높이(OS, 북마크바 유무)에 따라 빗나간다.
-  // 닫혀 있는 동안 관측된 최소 차이를 기준으로 잡고, 거기서 벌어지는 양으로 판단한다.
-  const DEVTOOLS_GROWTH = 100;
-  let baseDeltaW = Infinity;
-  let baseDeltaH = Infinity;
+  //  (1) 흔한 경우 — 도킹된 devtools 가 뷰포트를 잘라내 outer 와 inner 차이가 크게 벌어진다.
+  //  (2) 일부 환경 — 반대로 inner 가 outer 보다 커지는 모순된 값이 나온다.
+  //      실측 예) 닫힘 outer 900x1052 / inner 900x931,  열림 outer 118x907 / inner 472x3628
+  //      devtools 가 닫혀 있으면 브라우저 크롬 때문에 inner 는 언제나 outer 이하다.
+  //
+  // 관측 최소값을 기준선으로 삼는 방식은 쓰지 않는다. (2) 의 음수 차이를 기준선이 흡수해서
+  // 여닫는 판정이 통째로 뒤집힌다.
+  const DEVTOOLS_DELTA_W = 200;
+  const DEVTOOLS_DELTA_H = 300;
+  const OUTER_TOLERANCE = 4;
+
+  function devToolsLooksOpen() {
+    const iw = window.innerWidth;
+    const ih = window.innerHeight;
+    const ow = window.outerWidth;
+    const oh = window.outerHeight;
+    if (ow - iw > DEVTOOLS_DELTA_W || oh - ih > DEVTOOLS_DELTA_H) return true;
+    return iw > ow + OUTER_TOLERANCE || ih > oh + OUTER_TOLERANCE;
+  }
 
   function syncDevToolsState() {
-    const deltaW = window.outerWidth - window.innerWidth;
-    const deltaH = window.outerHeight - window.innerHeight;
-    if (!isDevToolsOpen) {
-      // 열린 뒤에 기준이 따라 올라가면 영영 못 닫힌 걸로 본다
-      baseDeltaW = Math.min(baseDeltaW, deltaW);
-      baseDeltaH = Math.min(baseDeltaH, deltaH);
-    }
-
-    // 절대 하한선은 "페이지를 열었을 때 이미 devtools 가 켜져 있던" 경우의 보루다.
-    // 그때는 기준선이 devtools 포함값으로 잡혀서 증가분만으로는 영영 감지되지 않는다.
-    // 브라우저 크롬은 북마크바를 켜도 세로 200 / 가로 40 을 넘지 않는다.
-    const open =
-      deltaW - baseDeltaW > DEVTOOLS_GROWTH ||
-      deltaH - baseDeltaH > DEVTOOLS_GROWTH ||
-      deltaW > 200 ||
-      deltaH > 300;
+    const open = devToolsLooksOpen();
     if (open === isDevToolsOpen) return;
 
     isDevToolsOpen = open;
