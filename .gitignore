@@ -5,4 +5,6 @@ build/
 *.zip
 
 # store 파일 다 삭제
-store/
+/store/*
+!/store/out/
+!/store/build/
