@@ -8,6 +8,7 @@
   const GRAVITY = 0.6;
 
   let currentPet = window.DEFAULT_PET || 'cat';
+  let currentTheme = window.DEFAULT_THEME || 'normal';
   let currentName = '';
   let x = window.innerWidth - PET_W - 40;
   let y = window.innerHeight - PET_H - 10;
@@ -44,53 +45,67 @@
   // ============ 펫 DOM 생성 ============
   const pet = document.createElement('div');
   pet.id = 'screen-pet';
+  let thought = null;
+
+  function themeAssets() {
+    const themes = window.PET_THEMES;
+    return (themes && (themes[currentTheme] || themes.normal)) || { pets: {}, house: '' };
+  }
 
   function buildPetHTML(petType, name) {
-    const svg = (window.PET_SVGS && window.PET_SVGS[petType]) || (window.PET_SVGS && window.PET_SVGS.cat) || '';
+    const pets = themeAssets().pets;
+    const svg = pets[petType] || pets.cat || '';
     const nameLabel = name ? `<div class="pet-name">${name}</div>` : '';
     return `<div class="pet-inner">${svg}<div class="pet-thought"></div>${nameLabel}</div>`;
   }
 
-  // 초기 펫 설정
-  pet.dataset.pet = currentPet;
-  pet.innerHTML = buildPetHTML(currentPet, currentName);
+  // innerHTML 을 갈아끼우면 말풍선 노드도 새로 생기므로 참조를 매번 다시 잡는다
+  function renderPet() {
+    pet.dataset.pet = currentPet;
+    pet.dataset.theme = currentTheme;
+    pet.innerHTML = buildPetHTML(currentPet, currentName);
+    thought = pet.querySelector('.pet-thought');
+  }
+
+  renderPet();
   document.body.appendChild(pet);
 
   // 펫 방석 DOM
   const house = document.createElement('div');
   house.id = 'pet-house';
   house.title = '방석 (클릭: 펫 재우기 / 드래그: 위치 옮기기)';
-  house.innerHTML = window.HOUSE_SVG || '';
   document.body.appendChild(house);
+
+  function renderHouse() {
+    house.dataset.theme = currentTheme;
+    house.innerHTML = themeAssets().house;
+  }
+  renderHouse();
 
   function applyCushionPosition() {
     house.style.left = `${homeLeft()}px`;
   }
   applyCushionPosition();
 
-  let thought = pet.querySelector('.pet-thought');
-
   function setPet(petType) {
-    if (!window.PET_SVGS || !window.PET_SVGS[petType]) return;
-    if (currentPet === petType && pet.dataset.pet === petType && pet.querySelector('.pet-inner')) {
-      // 이미 해당 펫이면 말풍선만 띄우기
-      showThought(getGreeting());
-      return;
+    if (!themeAssets().pets[petType]) return;
+    if (currentPet !== petType) {
+      currentPet = petType;
+      renderPet();
     }
-
-    currentPet = petType;
-    pet.dataset.pet = petType;
-    pet.innerHTML = buildPetHTML(petType, currentName);
-    // 다시 참조 잡기
-    thought = pet.querySelector('.pet-thought');
     showThought(getGreeting());
   }
 
   function setName(name) {
     currentName = name;
-    pet.innerHTML = buildPetHTML(currentPet, currentName);
-    // 다시 참조 잡기
-    thought = pet.querySelector('.pet-thought');
+    renderPet();
+  }
+
+  function setTheme(theme) {
+    if (!window.PET_THEMES || !window.PET_THEMES[theme] || theme === currentTheme) return;
+    currentTheme = theme;
+    renderPet();
+    renderHouse();
   }
 
   function setAtHome(value) {
@@ -127,10 +142,13 @@
 
   // storage 에서 펫 타입 및 이름 읽어오기 및 리스너 등록
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet', 'petName', 'atHome', 'cushionX'], (result) => {
+    chrome.storage.local.get(['pet', 'petName', 'atHome', 'cushionX', 'theme'], (result) => {
       if (typeof result.cushionX === 'number') {
         cushionX = result.cushionX;
         applyCushionPosition();
+      }
+      if (result.theme) {
+        setTheme(result.theme);
       }
       if (result.petName) {
         currentName = result.petName;
@@ -151,6 +169,7 @@
           cushionX = changes.cushionX.newValue;
           applyCushionPosition();
         }
+        if (changes.theme) setTheme(changes.theme.newValue);
         if (changes.pet) setPet(changes.pet.newValue);
         if (changes.petName) setName(changes.petName.newValue);
         if (changes.atHome) setAtHome(!!changes.atHome.newValue);
@@ -165,6 +184,8 @@
         setPet(message.petType);
       } else if (message.type === 'CHANGE_NAME') {
         setName(message.name);
+      } else if (message.type === 'CHANGE_THEME' && message.theme) {
+        setTheme(message.theme);
       }
     });
   }

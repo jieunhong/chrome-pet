@@ -26,6 +26,38 @@
       font-weight: 700;
     }
 
+    .theme-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 3px;
+      margin-bottom: 12px;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 10px;
+    }
+
+    .theme-tab {
+      flex: 1;
+      padding: 6px 0;
+      border: none;
+      border-radius: 7px;
+      background: transparent;
+      color: #8a6a54;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .theme-tab:hover:not(.selected) {
+      background: rgba(232, 147, 108, 0.15);
+    }
+
+    .theme-tab.selected {
+      background: #e8936c;
+      color: #fff;
+    }
+
     .pet-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -161,6 +193,7 @@
 
 <body>
   <h1>🐾 Pick a Pet</h1>
+  <div class="theme-tabs" id="themeTabs"></div>
   <div class="pet-grid" id="grid"></div>
 
   <div class="name-section">
@@ -173,6 +206,7 @@
 
   <p class="hint">Changes apply to all tabs instantly</p>
   <script src="pets.js"></script>
+  <script src="pets-pixel.js"></script>
   <script src="popup.js"></script>
 </body>
 

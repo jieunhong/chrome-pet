@@ -109,6 +109,12 @@
   display: block;
 }
 
+/* 도트 테마는 안티에일리어싱으로 픽셀 경계가 뭉개지면 안 된다 */
+#screen-pet[data-theme="pixel"] .pet-inner,
+#pet-house[data-theme="pixel"] svg {
+  shape-rendering: crispEdges;
+}
+
 /* 말풍선 */
 .pet-thought {
   position: absolute;
