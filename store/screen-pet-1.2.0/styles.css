@@ -510,15 +510,6 @@
   /* 눈 감기 */
 }
 
-/*
- * 도트 눈은 4x4 rect 라 scaleY(0.1) 이면 0.4px 이 되고, crispEdges 때문에 아예 사라진다.
- * 일반 테마는 타원이라 얇은 선으로 남지만 도트는 안 남는다.
- * 대신 가로로 늘리고 절반 높이로 눌러 감은 눈 선을 만든다.
- */
-#screen-pet[data-theme="pixel"][data-state="sleeping"] .pet-eye {
-  transform: scaleX(2) scaleY(0.5);
-}
-
 #screen-pet[data-state="sleeping"] .pet-leg {
   /* 다리는 몸 안으로 숨김 */
   opacity: 0;

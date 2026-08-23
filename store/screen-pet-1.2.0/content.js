@@ -38,8 +38,8 @@
 
   const homeLeft = () => Math.min(Math.max(cushionX, 0), window.innerWidth - CUSHION_W);
   const homeTop = () => window.innerHeight - CUSHION_H - CUSHION_MARGIN_BOTTOM;
-  // 펫(80)을 방석(100) 가운데에 놓는다
-  const petHomeX = () => homeLeft() + (CUSHION_W - PET_W) / 2;
+  // 펫이 방석 위에 자연스럽게 앉아 있도록 좌표 조정
+  const petHomeX = () => homeLeft() + (-10) + (CUSHION_W - PET_W) / 2;
   const petHomeY = () => homeTop() + 85 - PET_H; // 이전의 안정적인 중앙 좌표로 복구
 
   // ============ 펫 DOM 생성 ============
@@ -664,30 +664,12 @@
   // ============ 개발자도구 감지 ============
   // 도킹된 devtools 는 뷰포트를 잘라내므로 outer/inner 차이로 판별한다.
   // 별도 창으로 띄운 devtools 는 뷰포트가 그대로라 감지되지 않는다.
-  //
-  // 임계값을 고정하면 브라우저 크롬 높이(OS, 북마크바 유무)에 따라 빗나간다.
-  // 닫혀 있는 동안 관측된 최소 차이를 기준으로 잡고, 거기서 벌어지는 양으로 판단한다.
-  const DEVTOOLS_GROWTH = 100;
-  let baseDeltaW = Infinity;
-  let baseDeltaH = Infinity;
+  const DEVTOOLS_VIEWPORT_DELTA = 160;
 
   function syncDevToolsState() {
-    const deltaW = window.outerWidth - window.innerWidth;
-    const deltaH = window.outerHeight - window.innerHeight;
-    if (!isDevToolsOpen) {
-      // 열린 뒤에 기준이 따라 올라가면 영영 못 닫힌 걸로 본다
-      baseDeltaW = Math.min(baseDeltaW, deltaW);
-      baseDeltaH = Math.min(baseDeltaH, deltaH);
-    }
-
-    // 절대 하한선은 "페이지를 열었을 때 이미 devtools 가 켜져 있던" 경우의 보루다.
-    // 그때는 기준선이 devtools 포함값으로 잡혀서 증가분만으로는 영영 감지되지 않는다.
-    // 브라우저 크롬은 북마크바를 켜도 세로 200 / 가로 40 을 넘지 않는다.
     const open =
-      deltaW - baseDeltaW > DEVTOOLS_GROWTH ||
-      deltaH - baseDeltaH > DEVTOOLS_GROWTH ||
-      deltaW > 200 ||
-      deltaH > 300;
+      window.outerWidth - window.innerWidth > DEVTOOLS_VIEWPORT_DELTA ||
+      window.outerHeight - window.innerHeight > DEVTOOLS_VIEWPORT_DELTA;
     if (open === isDevToolsOpen) return;
 
     isDevToolsOpen = open;
