@@ -51,7 +51,7 @@
       .join('');
     const face = def.face ? rectsFromRows(def.face, p, PET_CELL) : '';
     const eyes = def.eyes
-      .map(([cx, cy], i) => rect(cx, cy, 1, 1, p.e, PET_CELL,
+      .map(([cx, cy, w = 1, h = 1], i) => rect(cx, cy, w, h, p.e, PET_CELL,
         `pet-eye ${i === 0 ? 'pet-eye-left' : 'pet-eye-right'}`))
       .join('');
 
@@ -68,6 +68,13 @@
     </svg>`;
   }
 
+  const DEFS = {};
+
+  function definePet(name, def) {
+    DEFS[name] = def;
+    return buildPet(def);
+  }
+
   // 네 다리가 같은 크기의 단색 덩어리인 펫들이 공유하는 형태
   const solidLegs = (positions, colors, w, h) =>
     positions.map(([x, y], i) => ({
@@ -75,7 +82,7 @@
       rows: Array.from({ length: h }, () => colors[i % colors.length].repeat(w)),
     }));
 
-  const CAT = buildPet({
+  const CAT = definePet('cat', {
     palette: { o: '#e89072', d: '#c8663d', k: '#b55432', p: '#ffc4a8', b: '#ff9a9a', e: '#1a0e08', n: '#7a2d2d' },
     tail: {
       x: 3, y: 9, rows: [
@@ -114,7 +121,7 @@
     eyes: [[12, 7], [16, 7]],
   });
 
-  const DOG = buildPet({
+  const DOG = definePet('dog', {
     palette: { o: '#e8c090', d: '#7d5a44', k: '#6a4a35', m: '#f5d4af', e: '#3a2a20', t: '#ec407a' },
     tail: {
       x: 3, y: 10, rows: [
@@ -136,29 +143,31 @@
       ],
     },
     legs: solidLegs([[7, 16], [9, 16], [12, 16], [14, 16]], ['d', 'k'], 2, 2),
+    // 얼굴 코어는 7칸(홀수). 짝수면 정중앙 칸이 없어 코가 늘 2px 틀어진다.
     head: {
-      x: 10, y: 6, rows: [
-        '..oooooo..',
-        '.dooooood.',
-        'ddommmmodd',
-        'ddommmmodd',
-        '.dommmmod.',
-        '..mmmmmm..',
+      x: 9, y: 6, rows: [
+        '...ooooo...',
+        '..ooooooo..',
+        'ddooooooodd',
+        'ddommmmmodd',
+        'ddommmmmodd',
+        'dd.mmmmm.dd',
+        '.d.......d.',
       ],
     },
+    // 코(위)와 혀(아래) 사이를 한 칸 띄운다
     face: {
-      x: 10, y: 8, rows: [
-        '....ee....',
-        '..........',
-        '..........',
-        '....tt....',
+      x: 9, y: 9, rows: [
+        '.....e.....',
+        '...........',
+        '.....t.....',
       ],
     },
-    eyes: [[13, 7], [16, 7]],
+    eyes: [[12, 8], [16, 8]],
   });
 
   // 흰 몸에 흰 파츠라 형태가 안 읽힌다. f 로 처진 귀를, s 로 아래쪽 음영을 준다
-  const MALTESE_WHITE = buildPet({
+  const MALTESE_WHITE = definePet('maltese_white', {
     palette: { w: '#ffffff', f: '#f0e9f0', s: '#e3dbe3', p: '#ffccd5', b: '#ffd9e0', e: '#111111', n: '#000000' },
     tail: {
       x: 4, y: 12, rows: [
@@ -184,20 +193,20 @@
       { x: 11, y: 16, rows: ['ww', 'pp'] },
     ],
     head: {
-      x: 6, y: 5, rows: [
-        '..wwwwww..',
-        '.fwwwwwwf.',
-        'ffwwwwwwff',
-        'ffwwwwwwff',
-        '.fwwwwwwf.',
-        '..ssssss..',
+      x: 5, y: 5, rows: [
+        '..wwwwwww..',
+        '.fwwwwwwwf.',
+        'ffwwwwwwwff',
+        'ffwwwwwwwff',
+        '.fwwwwwwwf.',
+        '..sssssss..',
       ],
     },
-    face: { x: 6, y: 7, rows: ['..b.nn.b..'] },
-    eyes: [[9, 6], [12, 6]],
+    face: { x: 5, y: 8, rows: ['..b..n..b..'] },
+    eyes: [[8, 7], [12, 7]],
   });
 
-  const HAMSTER = buildPet({
+  const HAMSTER = definePet('hamster', {
     palette: { o: '#f4d19b', d: '#e8c89a', k: '#d4a574', c: '#c89668', p: '#ff9a9a', l: '#fff0d4', e: '#1a0e08', n: '#7a2d2d' },
     tail: { x: 5, y: 13, rows: ['d'] },
     body: {
@@ -230,7 +239,7 @@
   });
 
   // 목이 머리 그룹에 포함된다 (일반 테마도 목 path 가 .pet-head 안에 있다)
-  const DINO = buildPet({
+  const DINO = definePet('dino', {
     palette: { g: '#6ab04c', d: '#5a9a3c', k: '#4a8a32', l: '#88d068', p: '#ff9a9a', e: '#1a1a1a' },
     tail: {
       x: 0, y: 14, rows: [
@@ -300,6 +309,9 @@
   };
 
   global.PET_SVGS_PIXEL = PET_SVGS_PIXEL;
+  // 미리보기에서 머리 시안을 갈아끼워 보기 위해 정의와 빌더를 노출한다
+  global.PIXEL_PET_DEFS = DEFS;
+  global.buildPixelPet = buildPet;
   global.HOUSE_SVG_PIXEL = CUSHION;
 
   global.PET_THEMES = {
