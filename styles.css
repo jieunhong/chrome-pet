@@ -81,6 +81,12 @@
   display: none;
 }
 
+/* 개발자도구가 열려 있는 동안 숨김 (애니메이션 루프도 함께 정지된다) */
+#screen-pet.devtools-hidden,
+#pet-house.devtools-hidden {
+  display: none;
+}
+
 #screen-pet.dragging {
   cursor: grabbing;
 }

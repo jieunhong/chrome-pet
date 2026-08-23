@@ -24,6 +24,7 @@
   let dragOffsetY = 0;
   let lastMouseMoveTime = 0;
   let isAtHome = false;
+  let isDevToolsOpen = false;
 
   // ============ 펫 방석 (Cushion) ============
   const CUSHION_W = 100;
@@ -458,7 +459,17 @@
   }
 
   // ============ 메인 루프 ============
+  let rafId = 0;
+
+  function scheduleUpdate() {
+    if (rafId) return;
+    rafId = requestAnimationFrame(update);
+  }
+
   function update() {
+    rafId = 0;
+    if (isDevToolsOpen) return; // 개발자도구가 열려 있는 동안은 루프 자체를 멈춘다
+
     stateTimer--;
 
     if (isAtHome) {
@@ -477,7 +488,7 @@
       pet.dataset.facing = facing; // 데이터 속성 추가
       pet.dataset.state = 'sleeping';
 
-      requestAnimationFrame(update);
+      scheduleUpdate();
       return;
     }
 
@@ -591,12 +602,43 @@
 
     pet.dataset.state = state;
 
-    requestAnimationFrame(update);
+    scheduleUpdate();
   }
 
-  update();
+  scheduleUpdate();
+
+  // ============ 개발자도구 감지 ============
+  // 도킹된 devtools 는 뷰포트를 잘라내므로 outer/inner 차이로 판별한다.
+  // 별도 창으로 띄운 devtools 는 뷰포트가 그대로라 감지되지 않는다.
+  const DEVTOOLS_VIEWPORT_DELTA = 160;
+
+  function syncDevToolsState() {
+    const open =
+      window.outerWidth - window.innerWidth > DEVTOOLS_VIEWPORT_DELTA ||
+      window.outerHeight - window.innerHeight > DEVTOOLS_VIEWPORT_DELTA;
+    if (open === isDevToolsOpen) return;
+
+    isDevToolsOpen = open;
+    pet.classList.toggle('devtools-hidden', open);
+    house.classList.toggle('devtools-hidden', open);
+
+    if (open) {
+      // 이미 떠 있는 파티클은 펫과 무관하게 남으므로 같이 치운다
+      document.querySelectorAll('.zzz-particle, .heart-particle').forEach((el) => el.remove());
+      isDragging = false;
+      isDraggingHouse = false;
+      pet.classList.remove('dragging');
+      house.classList.remove('dragging');
+    } else {
+      scheduleUpdate();
+    }
+  }
+
+  syncDevToolsState();
+  setInterval(syncDevToolsState, 1000);
 
   window.addEventListener('resize', () => {
+    syncDevToolsState();
     applyCushionPosition();
     if (y > groundY()) y = groundY();
     if (x > window.innerWidth - PET_W) x = window.innerWidth - PET_W;
