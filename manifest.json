@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Screen Pet - 화면 펫",
+  "name": "Screen Pet",
   "version": "1.3.0",
-  "description": "화면을 뛰어다니는 귀여운 펫 친구! 고양이 🐱 강아지 🐶 햄스터 🐹 중 선택 가능",
+  "description": "A cute little pet that runs around your screen! Pick a cat 🐱 dog 🐶 maltese 🐩 hamster 🐹 or dino 🦕 — in soft or pixel art.",
   "permissions": ["storage", "tabs"],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "펫 선택",
+    "default_title": "Pick a pet",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
