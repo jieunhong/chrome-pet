@@ -99,19 +99,19 @@
     },
     legs: solidLegs([[7, 15], [9, 15], [12, 15], [14, 15]], ['d', 'k'], 2, 3),
     head: {
-      x: 11, y: 6, rows: [
-        'd......d',
-        'dp....pd',
-        '.oooooo.',
-        'oooooooo',
-        'oooooooo',
-        'oooooooo',
-        '.oooooo.',
-        '..dddd..',
+      x: 11, y: 4, rows: [
+        'd.....d',
+        'dp...pd',
+        'ooooooo',
+        'ooooooo',
+        'ooooooo',
+        'ooooooo',
+        '.ooooo.',
+        '..ddd..',
       ],
     },
-    face: { x: 11, y: 11, rows: ['.b.nn.b.'] },
-    eyes: [[13, 9], [16, 9]],
+    face: { x: 11, y: 9, rows: ['b..n..b'] },
+    eyes: [[12, 7], [16, 7]],
   });
 
   const DOG = buildPet({
@@ -138,24 +138,23 @@
     legs: solidLegs([[7, 16], [9, 16], [12, 16], [14, 16]], ['d', 'k'], 2, 2),
     head: {
       x: 10, y: 6, rows: [
-        'dd......dd',
-        'dd.oooo.dd',
-        'ddoooooodd',
-        'ddoooooodd',
+        '..oooooo..',
         '.dooooood.',
-        '.ommmmmmo.',
+        'ddommmmodd',
+        'ddommmmodd',
+        '.dommmmod.',
         '..mmmmmm..',
-        '...mmmm...',
       ],
     },
     face: {
-      x: 10, y: 11, rows: [
+      x: 10, y: 8, rows: [
         '....ee....',
+        '..........',
         '..........',
         '....tt....',
       ],
     },
-    eyes: [[12, 9], [17, 9]],
+    eyes: [[13, 7], [16, 7]],
   });
 
   // 흰 몸에 흰 파츠라 형태가 안 읽힌다. f 로 처진 귀를, s 로 아래쪽 음영을 준다
@@ -186,19 +185,16 @@
     ],
     head: {
       x: 6, y: 5, rows: [
-        '...wwww...',
         '..wwwwww..',
         '.fwwwwwwf.',
         'ffwwwwwwff',
         'ffwwwwwwff',
-        'ffwwwwwwff',
         '.fwwwwwwf.',
-        '..wwwwww..',
-        '...ssss...',
+        '..ssssss..',
       ],
     },
-    face: { x: 6, y: 11, rows: ['..b.nn.b..'] },
-    eyes: [[9, 9], [12, 9]],
+    face: { x: 6, y: 7, rows: ['..b.nn.b..'] },
+    eyes: [[9, 6], [12, 6]],
   });
 
   const HAMSTER = buildPet({
