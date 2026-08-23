@@ -116,45 +116,45 @@ const iconPage = (body) => page({
 
 const CREAM = '#ffe8d6';
 
-// A. 고양이 얼굴 클로즈업 — 16px 로 줄여도 형태가 남는 쪽
+// 아이콘 주인공. 바꾸려면 여기만 고치면 B/C/D 가 따라간다 (A 는 손으로 그린 얼굴이라 별도).
+const ICON_PET = 'hamster';
+
+// 스프라이트에서 머리 그룹만 떼어낸다 (얼굴 클로즈업용)
+const headGroup = (theme, name) => {
+  const svg = petSvg(theme, name);
+  return svg.slice(svg.indexOf('<g class="pet-head">'), svg.lastIndexOf('</g>') + 4);
+};
+
+// A. 햄스터 얼굴 클로즈업 — 16px 로 줄여도 형태가 남도록 이목구비를 크게 다시 그렸다
 const iconA = iconPage(`
   <circle cx="64" cy="64" r="63" fill="${CREAM}"/>
-  <path d="M28 54 L33 14 L60 40 Z" fill="#c8663d"/>
-  <path d="M100 54 L95 14 L68 40 Z" fill="#c8663d"/>
-  <path d="M37 47 L39 27 L50 40 Z" fill="#ffc4a8"/>
-  <path d="M91 47 L89 27 L78 40 Z" fill="#ffc4a8"/>
-  <circle cx="64" cy="67" r="39" fill="#e89072"/>
-  <ellipse cx="50" cy="62" rx="5.5" ry="7.5" fill="#1a0e08"/>
-  <ellipse cx="78" cy="62" rx="5.5" ry="7.5" fill="#1a0e08"/>
-  <circle cx="51.8" cy="59" r="2" fill="#fff"/>
-  <circle cx="79.8" cy="59" r="2" fill="#fff"/>
-  <path d="M59 78 L69 78 L64 84 Z" fill="#7a2d2d"/>
-  <path d="M64 84 Q57 90 53 85 M64 84 Q71 90 75 85"
-        stroke="#7a2d2d" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-  <circle cx="38" cy="78" r="7" fill="#ff9a9a" opacity="0.45"/>
-  <circle cx="90" cy="78" r="7" fill="#ff9a9a" opacity="0.45"/>
+  <circle cx="35" cy="35" r="14" fill="#c89668"/>
+  <circle cx="93" cy="35" r="14" fill="#c89668"/>
+  <circle cx="35" cy="36" r="7.5" fill="#ff9a9a"/>
+  <circle cx="93" cy="36" r="7.5" fill="#ff9a9a"/>
+  <circle cx="64" cy="68" r="41" fill="#f4d19b"/>
+  <ellipse cx="32" cy="78" rx="14" ry="11" fill="#e8c89a"/>
+  <ellipse cx="96" cy="78" rx="14" ry="11" fill="#e8c89a"/>
+  <ellipse cx="51" cy="63" rx="5.5" ry="7" fill="#1a0e08"/>
+  <ellipse cx="77" cy="63" rx="5.5" ry="7" fill="#1a0e08"/>
+  <circle cx="52.8" cy="60" r="2" fill="#fff"/>
+  <circle cx="78.8" cy="60" r="2" fill="#fff"/>
+  <ellipse cx="64" cy="79" rx="4.5" ry="3.2" fill="#7a2d2d"/>
+  <rect x="59" y="84" width="10" height="10" rx="1.6" fill="#fff" stroke="#d4b088" stroke-width="1.2"/>
+  <line x1="64" y1="84" x2="64" y2="94" stroke="#d4b088" stroke-width="1.2"/>
 `);
 
 // B. 방석 위에 웅크린 고양이 — 확장의 시그니처 조합
 const iconB = iconPage(`
   <circle cx="64" cy="64" r="63" fill="${CREAM}"/>
   <g transform="translate(64 78) scale(0.66) translate(-50 -50)">${houseSvg('normal')}</g>
-  <g transform="translate(62 58) scale(0.5) translate(-64 -64)">
-    <path d="M28 54 L33 14 L60 40 Z" fill="#c8663d"/>
-    <path d="M100 54 L95 14 L68 40 Z" fill="#c8663d"/>
-    <path d="M37 47 L39 27 L50 40 Z" fill="#ffc4a8"/>
-    <path d="M91 47 L89 27 L78 40 Z" fill="#ffc4a8"/>
-    <circle cx="64" cy="67" r="39" fill="#e89072"/>
-    <path d="M40 62 Q50 54 60 62" stroke="#1a0e08" stroke-width="5" fill="none" stroke-linecap="round"/>
-    <path d="M68 62 Q78 54 88 62" stroke="#1a0e08" stroke-width="5" fill="none" stroke-linecap="round"/>
-    <path d="M59 80 L69 80 L64 86 Z" fill="#7a2d2d"/>
-  </g>
+  <g transform="translate(64 56) scale(1.9) translate(-60 -42)">${headGroup('normal', ICON_PET)}</g>
   <text x="92" y="40" font-size="24" font-family="system-ui" fill="#a98a6e" font-weight="800">z</text>
   <text x="104" y="24" font-size="16" font-family="system-ui" fill="#c0a288" font-weight="800">z</text>
 `);
 
 // C. 도트 고양이 얼굴 — 실제 도트 테마 격자를 그대로 확대
-const catDef = assets.PIXEL_PET_DEFS.cat;
+const catDef = assets.PIXEL_PET_DEFS[ICON_PET];
 // 머리 격자 크기에서 칸 크기와 여백을 역산한다. 격자 칸수를 상수로 박으면 스프라이트를 고칠 때 잘린다.
 const HEAD_W = Math.max(...catDef.head.rows.map((r) => r.length));
 const HEAD_H = catDef.head.rows.length;
@@ -178,8 +178,8 @@ const iconC = iconPage(`
 
 // D. 배경 없이 고양이 전신 — 툴바에서 배경 원 없이 뜨는 쪽
 const iconD = iconPage(`
-  <g transform="translate(64 64) scale(1.72) translate(-39 -45)">
-    ${petSvg('normal', 'cat').replace(/<\/?svg[^>]*>/g, '')}
+  <g transform="translate(64 64) scale(2) translate(-46.5 -50.5)">
+    ${petSvg('normal', ICON_PET).replace(/<\/?svg[^>]*>/g, '')}
   </g>
 `);
 
