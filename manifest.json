@@ -4,6 +4,9 @@
   "version": "1.3.0",
   "description": "A cute little pet that runs around your screen! Pick a cat 🐱 dog 🐶 maltese 🐩 hamster 🐹 or dino 🦕 — in soft or pixel art.",
   "permissions": ["storage", "tabs"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "Pick a pet",

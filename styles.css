@@ -77,8 +77,63 @@
   display: none;
 }
 
-#screen-pet.hidden {
+/* 우클릭 메뉴의 "Remove from this page" 로 치운 상태 (새로고침하면 돌아온다) */
+#screen-pet.hidden,
+#pet-house.hidden {
   display: none;
+}
+
+/* ============ 우클릭 메뉴 ============ */
+#pet-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483647;
+  display: none;
+  min-width: 196px;
+  padding: 6px;
+  box-sizing: border-box;
+  background: #fffaf3;
+  border: 1px solid #e8d5bb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(90, 58, 40, 0.18);
+  font-family: -apple-system, "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#pet-menu.show {
+  display: block;
+}
+
+/* 페이지 CSS 가 button 을 건드려도 흔들리지 않게 값을 다 적는다 */
+#pet-menu button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 11px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #4a3020;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#pet-menu button + button {
+  margin-top: 2px;
+}
+
+#pet-menu button:hover {
+  background: #ffe8d6;
 }
 
 /* 개발자도구가 열려 있는 동안 숨김 (애니메이션 루프도 함께 정지된다) */
