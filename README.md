@@ -73,6 +73,13 @@ screen-pet/
 3. Add a new card in `popup.html` and update `popup.js` to handle the selection.
 4. Add specific thoughts for your new pet in `content.js` under `PET_THOUGHTS`.
 
+## Support
+
+Screen Pet is free and non-commercial. If it made your browsing a little nicer,
+a coffee is always appreciated.
+
+☕ [**Buy me a coffee (PayPal)**](https://paypal.me/YOUR_PAYPAL_ID)
+
 ## License
 
 This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.
