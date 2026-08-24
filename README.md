@@ -78,7 +78,7 @@ screen-pet/
 Screen Pet is free and non-commercial. If it made your browsing a little nicer,
 a coffee is always appreciated.
 
-☕ [**Buy me a coffee (PayPal)**](https://paypal.me/YOUR_PAYPAL_ID)
+☕ [**Buy me a coffee (PayPal)**](https://paypal.me/hongbbubbu)
 
 ## License
 
