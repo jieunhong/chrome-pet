@@ -9,7 +9,7 @@
    *
    * 비워두면 링크 자체가 렌더되지 않는다.
    */
-  const DONATE_URL = '';
+  const DONATE_URL = 'https://paypal.me/hongbbubbu';
 
   function mountDonate() {
     if (!DONATE_URL) return;
