@@ -1,4 +1,25 @@
 (function () {
+  /*
+   * 후원 링크. PayPal.Me 주소나 PayPal 기부 버튼 URL 을 넣으면 팝업 하단에 나온다.
+   *   예) https://paypal.me/<본인아이디>
+   *       https://www.paypal.com/donate/?hosted_button_id=<버튼ID>
+   *
+   * 확장 페이지는 script-src 'self' 라 PayPal JS SDK 는 못 쓴다.
+   * 링크는 스크립트를 안 불러오므로 제약이 없다.
+   *
+   * 비워두면 링크 자체가 렌더되지 않는다.
+   */
+  const DONATE_URL = '';
+
+  function mountDonate() {
+    if (!DONATE_URL) return;
+    const link = document.getElementById('donate');
+    link.href = DONATE_URL;
+    link.classList.add('on');
+  }
+
+  mountDonate();
+
   const grid = document.getElementById('grid');
   const themeTabs = document.getElementById('themeTabs');
   let currentPet = window.DEFAULT_PET || 'cat';
