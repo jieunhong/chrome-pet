@@ -169,6 +169,7 @@
       <li><strong>배회 범위</strong> — 방석을 <em>왼쪽 끝</em>으로 옮기고 잠시 두세요. 펫이 왼쪽 구석에 갇히지 않고 화면 전체를 돌아다녀야 합니다 (이번에 같이 고친 부분).</li>
       <li><strong>탭 간 동기화</strong> — 이 페이지를 두 탭에 띄우고 한쪽에서 방석을 옮긴 뒤, 다른 탭을 클릭해 포커스를 주면 같은 위치로 따라와야 합니다.</li>
       <li><strong>개발자도구</strong> — <code>⌥⌘I</code> 로 devtools 를 <em>도킹된 상태</em>로 여세요. 펫과 방석이 즉시 사라지고 <code>rAF running</code> 이 <code>no</code> 로 바뀌어야 합니다. 닫으면 되살아납니다. (별도 창으로 띄우면 감지되지 않는 것이 정상입니다.)</li>
+      <li><strong>우클릭 메뉴</strong> — 펫이나 방석을 우클릭하면 Settings / Remove from this page / Go to sleep 세 항목이 뜹니다. 화면 가장자리에서 우클릭해도 메뉴가 화면 안으로 접혀 들어가야 하고, 바깥을 누르거나 Esc 로 닫혀야 합니다. <code>Remove</code> 는 펫과 방석을 같이 치우고 새로고침하면 돌아옵니다. <code>Settings</code> 는 하네스에선 말풍선 로그에 <code>runtime.sendMessage</code> 로만 남습니다(실제 확장에서 팝업이 열립니다).</li>
       <li><strong>테마 전환</strong> — probe 의 테마 셀렉터로 일반/도트를 바꿔보세요. 펫과 방석이 동시에 갈아끼워지고, 걷기·꼬리·눈 깜빡임 애니메이션이 도트 버전에서도 그대로 돌아야 합니다. 이름표를 붙여둔 상태로 바꿔도 이름이 유지돼야 합니다.</li>
       <li><strong>시간대별 대사</strong> — probe 의 시간 셀렉터로 시각을 강제한 뒤, 방석을 클릭해 펫을 재웠다 깨우면 그 시간대 인사말이 나옵니다 (<code>good morning! ☀️</code>, <code>still up? 🌙</code> 등). 멍하니 두면 <code>말풍선 로그</code> 에 시간대 대사가 섞여 쌓입니다. 클릭·추격·댄스 반응은 시간과 무관하게 유지되는지도 같이 보세요.</li>
     </ol>
@@ -225,6 +226,14 @@
               listeners.push(fn);
             },
           },
+        },
+        // 우클릭 메뉴의 Settings 는 background 로 메시지를 보낸다. 하네스에서는 로그로 확인한다.
+        runtime: {
+          sendMessage(message) {
+            // 프로브가 아직 초기화되기 전일 수 있다
+            if (window.__harnessLog) window.__harnessLog('msg', JSON.stringify(message));
+          },
+          getURL: (path) => path,
         },
       };
 
@@ -283,15 +292,20 @@
       const logNode = $('p-log');
       const history = [];
       let lastThought = '';
+
+      function pushLog(label, text) {
+        history.unshift(`<div><b>${label}</b> ${text}</div>`);
+        history.length = Math.min(history.length, 30);
+        logNode.innerHTML = history.join('');
+      }
+      window.__harnessLog = pushLog;
       setInterval(() => {
         const bubble = document.querySelector('#screen-pet .pet-thought');
         if (!bubble || !bubble.classList.contains('show')) return;
         const text = bubble.textContent;
         if (!text || text === lastThought) return;
         lastThought = text;
-        history.unshift(`<div><b>${slotOf(new Date().getHours())}</b> ${text}</div>`);
-        history.length = Math.min(history.length, 30);
-        logNode.innerHTML = history.join('');
+        pushLog(slotOf(new Date().getHours()), text);
       }, 150);
 
       const set = (id, value, warn) => {

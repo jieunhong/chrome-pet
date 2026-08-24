@@ -26,6 +26,7 @@
   let lastMouseMoveTime = 0;
   let isAtHome = false;
   let isDevToolsOpen = false;
+  let removedFromPage = false;
 
   // ============ 펫 방석 (Cushion) ============
   const CUSHION_W = 100;
@@ -352,14 +353,17 @@
   let houseDragStartX = 0;
   let houseDragMoved = false;
 
-  function toggleAtHome() {
-    const next = !isAtHome;
+  function applyAtHome(next) {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       // storage 에 쓰면 onChanged 리스너가 setAtHome 을 호출
       chrome.storage.local.set({ atHome: next });
     } else {
       setAtHome(next);
     }
+  }
+
+  function toggleAtHome() {
+    applyAtHome(!isAtHome);
   }
 
   house.addEventListener('mousedown', (e) => {
@@ -454,11 +458,71 @@
     e.preventDefault();
   });
 
-  // 우클릭: 펫 숨기기/보이기
+  // ============ 우클릭 메뉴 ============
+  const menu = document.createElement('div');
+  menu.id = 'pet-menu';
+  menu.innerHTML = [
+    ['settings', '⚙️ Settings'],
+    ['remove', '🚫 Remove from this page'],
+    ['sleep', '💤 Go to sleep'],
+  ].map(([action, label]) => `<button type="button" data-action="${action}">${label}</button>`).join('');
+  document.body.appendChild(menu);
+
+  function openMenu(clientX, clientY) {
+    menu.classList.add('show');
+    // 크기를 재려면 먼저 보여야 한다. 화면 밖으로 넘어가지 않게 접어 넣는다.
+    const { width, height } = menu.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, Math.min(clientX, window.innerWidth - width - 8))}px`;
+    menu.style.top = `${Math.max(8, Math.min(clientY, window.innerHeight - height - 8))}px`;
+  }
+
+  const closeMenu = () => menu.classList.remove('show');
+
+  // 현재 페이지에서만 치운다. 새로고침하면 다시 나온다.
+  function removeFromPage() {
+    removedFromPage = true;
+    pet.classList.add('hidden');
+    house.classList.add('hidden');
+    document.querySelectorAll('.zzz-particle, .heart-particle').forEach((el) => el.remove());
+  }
+
+  // content script 에서는 chrome.action 을 쓸 수 없어 background 에 부탁한다
+  function openSettings() {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ type: 'OPEN_POPUP' });
+    }
+  }
+
+  const MENU_ACTIONS = {
+    settings: openSettings,
+    remove: removeFromPage,
+    sleep: () => applyAtHome(true),
+  };
+
   pet.addEventListener('contextmenu', (e) => {
-    if (isAtHome) return;
     e.preventDefault();
-    pet.classList.toggle('hidden');
+    openMenu(e.clientX, e.clientY);
+  });
+
+  house.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    openMenu(e.clientX, e.clientY);
+  });
+
+  menu.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-action]');
+    if (!item) return;
+    closeMenu();
+    MENU_ACTIONS[item.dataset.action]();
+  });
+
+  // 메뉴 밖을 누르면 닫는다. 캡처 단계에서 잡아야 페이지가 이벤트를 먹어도 닫힌다.
+  document.addEventListener('mousedown', (e) => {
+    if (!menu.contains(e.target)) closeMenu();
+  }, true);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeMenu();
   });
 
   // ============ 상태 전이 ============
@@ -522,7 +586,8 @@
 
   function update() {
     rafId = 0;
-    if (isDevToolsOpen) return; // 개발자도구가 열려 있는 동안은 루프 자체를 멈춘다
+    // 개발자도구가 열려 있거나 이 페이지에서 치운 상태면 루프 자체를 멈춘다
+    if (isDevToolsOpen || removedFromPage) return;
 
     stateTimer--;
 
