@@ -692,11 +692,14 @@
   }
 }
 
-/* Zzz 효과 */
+/* Zzz 효과.
+ * JS 가 넘겨주는 좌표는 뷰포트 기준이라 position 은 반드시 fixed 여야 한다.
+ * absolute 면 스크롤된 페이지에서 문서 기준으로 해석되어 엉뚱한 높이에 뜬다. */
 .zzz-particle {
-  position: absolute;
+  position: fixed;
   top: -10px;
   left: 50%;
+  z-index: 2147483647;
   color: #5a3a28;
   font-size: 14px;
   font-weight: bold;
@@ -765,8 +768,8 @@
   }
 }
 
-/* 하트 입자용 */
-.pet-heart-particle {
+/* 하트 입자용 (JS 의 createHeart 가 만드는 클래스명과 일치해야 한다) */
+.heart-particle {
   position: fixed;
   pointer-events: none;
   z-index: 2147483647;
