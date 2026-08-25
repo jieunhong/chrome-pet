@@ -53,10 +53,17 @@
     return (themes && (themes[currentTheme] || themes.normal)) || { pets: {}, house: '' };
   }
 
+  // 이름은 사용자 입력이라 페이지 DOM 에 넣기 전에 이스케이프한다
+  function escapeHTML(text) {
+    return String(text).replace(/[&<>"']/g, (ch) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+    ));
+  }
+
   function buildPetHTML(petType, name) {
     const pets = themeAssets().pets;
     const svg = pets[petType] || pets.cat || '';
-    const nameLabel = name ? `<div class="pet-name">${name}</div>` : '';
+    const nameLabel = name ? `<div class="pet-name">${escapeHTML(name)}</div>` : '';
     return `<div class="pet-inner">${svg}<div class="pet-thought"></div>${nameLabel}</div>`;
   }
 
@@ -90,11 +97,12 @@
 
   function setPet(petType) {
     if (!themeAssets().pets[petType]) return;
+    // storage 에코와 메시지가 둘 다 도착해도 인사는 실제로 바뀔 때 한 번만
     if (currentPet !== petType) {
       currentPet = petType;
       renderPet();
+      showThought(getGreeting());
     }
-    showThought(getGreeting());
   }
 
   function setName(name) {
@@ -181,6 +189,7 @@
   // 메시지 통신을 통한 실시간 반영 (fallback)
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((message) => {
+      if (!message) return;
       if (message.type === 'CHANGE_PET' && message.petType) {
         setPet(message.petType);
       } else if (message.type === 'CHANGE_NAME') {
@@ -286,7 +295,7 @@
     h.style.left = cx + 'px';
     h.style.top = cy + 'px';
     document.body.appendChild(h);
-    setTimeout(() => h.remove(), 800);
+    setTimeout(() => h.remove(), 1000); // 애니메이션(1s)이 끝난 뒤 제거
   }
 
   function createZzz() {
