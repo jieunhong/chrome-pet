@@ -31,6 +31,11 @@
   // 크롬 창을 여러 개 띄워도 펫은 "지금 보고 있는 탭" 한 곳에만 있는다
   let presentOnTab = true;
 
+  // 커서 추격을 절제시키는 상태들: 발견(!) -> 따라갈지 말지 결정 -> 추격 후 쿨다운
+  const CHASE_STOP_DIST = 70; // 커서 바로 밑까지 붙지 않고 이만큼 떨어져서 멈춘다
+  let chaseCooldownUntil = 0;
+  let noticeWillChase = false;
+
   // ============ 펫 방석 (Cushion) ============
   const CUSHION_W = 100;
   const CUSHION_H = 100;
@@ -342,7 +347,7 @@
       closeMenu();
       isDragging = false;
       pet.classList.remove('dragging');
-      if (['held'].indexOf(state) !== -1) {
+      if (['held', 'noticing'].indexOf(state) !== -1) {
         state = 'idle';
         stateTimer = 60;
       }
@@ -594,34 +599,39 @@
 
   function chooseNextAction() {
     const r = Math.random();
-    if (r < 0.2) { // 30% -> 20%
+    if (r < 0.18) {
       state = 'walking';
       pickRandomTarget();
-      stateTimer = 400; // 300 -> 400
-    } else if (r < 0.3) { // 20% -> 10%
+      stateTimer = 400;
+    } else if (r < 0.27) {
       state = 'running';
       pickRandomTarget();
-      stateTimer = 250; // 180 -> 250
-    } else if (r < 0.4) { // 20% -> 10%
+      stateTimer = 250;
+    } else if (r < 0.36) {
       state = 'jumping';
-      vy = -10 - Math.random() * 2; // 조금 덜 뛰게
+      vy = -10 - Math.random() * 2;
       vx = (Math.random() - 0.5) * 4;
       stateTimer = 100;
       if (Math.random() < 0.2) showThought();
-    } else if (r < 0.7) { // 15% -> 30%
+    } else if (r < 0.44) {
+      // 혼자 놀기: 꼬리잡기 뱅글뱅글. 주인이 없어도 심심하지 않다.
+      state = 'playing';
+      stateTimer = 120 + Math.random() * 80;
+      if (Math.random() < 0.5) showThought(getThoughts('chase'));
+    } else if (r < 0.7) {
       state = 'sitting';
-      stateTimer = 400 + Math.random() * 400; // 더 오래 앉아있음
-    } else if (r < 0.8) { // 8% -> 10%
+      stateTimer = 400 + Math.random() * 400;
+    } else if (r < 0.8) {
       state = 'dancing';
       stateTimer = 150;
       showThought('♪');
-    } else if (r < 0.9) { // 5% -> 10%
+    } else if (r < 0.9) {
       state = 'sleeping';
-      stateTimer = 800 + Math.random() * 1000; // 더 깊게 잠
+      stateTimer = 800 + Math.random() * 1000;
       showThought('zzZ');
-    } else { // 2% -> 10%
+    } else {
       state = 'idle';
-      stateTimer = 200 + Math.random() * 300; // 더 오래 멍하게
+      stateTimer = 200 + Math.random() * 300;
     }
   }
 
@@ -633,12 +643,15 @@
     rafId = requestAnimationFrame(update);
   }
 
+  let frameCount = 0;
+
   function update() {
     rafId = 0;
     // 개발자도구가 열려 있거나, 이 페이지에서 치웠거나, 다른 탭/창에 펫이 있으면 루프를 멈춘다
     if (isDevToolsOpen || removedFromPage || !presentOnTab) return;
 
     stateTimer--;
+    frameCount++;
 
     if (isAtHome) {
       // 방석 위에서 가만히 자기. 창 크기 변경에도 위치 재고정.
@@ -666,19 +679,40 @@
       const cursorDist = mouseX - (x + PET_W / 2);
       const cursorAbsDist = Math.abs(cursorDist);
 
+      // 커서를 발견해도 바로 달려들지 않는다.
+      // 먼저 "!" 하고 알아채고(noticing), 따라갈지는 그때그때 다르며,
+      // 한 번 따라갔다 오면 한동안(쿨다운) 자기 할 일을 한다.
+      const calm = ['idle', 'sitting', 'walking', 'running'].indexOf(state) !== -1;
       if (
+        calm &&
         cursorActive && cursorLow &&
-        cursorAbsDist < 400 && cursorAbsDist > 30 &&
-        ['jumping', 'falling', 'dancing', 'shocked'].indexOf(state) === -1
+        cursorAbsDist < 350 && cursorAbsDist > CHASE_STOP_DIST + 20 &&
+        Date.now() > chaseCooldownUntil
       ) {
-        state = 'chasing';
-        targetX = mouseX - PET_W / 2;
-        stateTimer = 60;
+        state = 'noticing';
+        stateTimer = 45 + Math.random() * 45;
+        vx = 0;
+        facing = cursorDist > 0 ? 1 : -1;
+        noticeWillChase = Math.random() < 0.55;
+        showThought('!');
       }
 
       if (state === 'idle' || state === 'sitting') {
         vx = 0;
         if (stateTimer <= 0) chooseNextAction();
+      } else if (state === 'noticing') {
+        vx = 0;
+        if (stateTimer <= 0) {
+          if (noticeWillChase) {
+            state = 'chasing';
+            stateTimer = 300;
+          } else {
+            // 주인 왔네~ 하고는 관심 끄고 하던 대로 논다
+            state = Math.random() < 0.5 ? 'sitting' : 'idle';
+            stateTimer = 150 + Math.random() * 200;
+            chaseCooldownUntil = Date.now() + 8000 + Math.random() * 8000;
+          }
+        }
       } else if (state === 'walking') {
         const dx = targetX - x;
         if (Math.abs(dx) < 3 || stateTimer <= 0) {
@@ -698,13 +732,27 @@
           facing = dx > 0 ? 1 : -1;
         }
       } else if (state === 'chasing') {
-        const dx = targetX - x;
-        if (Math.abs(dx) < 10) {
-          state = 'idle';
-          stateTimer = 80;
+        const dx = mouseX - (x + PET_W / 2);
+        // 커서가 화면을 떠나 멈춘 지 오래면 옛 좌표를 쫓아 벽까지 달리지 않는다
+        const cursorGone = Date.now() - lastMouseMoveTime > 2500;
+        // 커서 바로 밑까지 붙지 않고 조금 떨어져서 멈춘 뒤, 한동안 쉰다
+        if (Math.abs(dx) <= CHASE_STOP_DIST || stateTimer <= 0 || cursorGone) {
+          state = 'sitting';
+          stateTimer = 200 + Math.random() * 200;
+          facing = dx > 0 ? 1 : -1;
+          chaseCooldownUntil = Date.now() + 12000 + Math.random() * 15000;
         } else {
           vx = dx > 0 ? 4.0 : -4.0;
           facing = dx > 0 ? 1 : -1;
+        }
+      } else if (state === 'playing') {
+        vx = 0;
+        // 꼬리잡기: 주기적으로 홱홱 방향을 바꾼다.
+        // stateTimer 는 소수라 % 비교가 절대 참이 안 되므로 정수인 frameCount 를 쓴다.
+        if (frameCount % 30 === 0) facing *= -1;
+        if (stateTimer <= 0) {
+          state = 'sitting';
+          stateTimer = 150 + Math.random() * 150;
         }
       } else if (state === 'dancing') {
         vx = 0;
@@ -817,7 +865,7 @@
       pet.classList.remove('dragging');
       house.classList.remove('dragging');
       // 드래그 중이었으면 held 로 얼어붙지 않게 지상 상태로 되돌린다
-      if (['held'].indexOf(state) !== -1) {
+      if (['held', 'noticing'].indexOf(state) !== -1) {
         state = 'idle';
         stateTimer = 60;
       }

@@ -794,3 +794,53 @@
     opacity: 0;
   }
 }
+
+/* ============ 발견(!) 상태 ============ */
+#screen-pet[data-state="noticing"] .pet-inner {
+  animation: notice-perk 0.45s ease-out;
+}
+
+#screen-pet[data-state="noticing"] .pet-eye {
+  animation: none;
+  transform: scale(1.3);
+}
+
+@keyframes notice-perk {
+  0% {
+    transform: scaleX(var(--facing)) translateY(0);
+  }
+
+  35% {
+    transform: scaleX(var(--facing)) translateY(-7px);
+  }
+
+  70%,
+  100% {
+    transform: scaleX(var(--facing)) translateY(0);
+  }
+}
+
+/* ============ 혼자 놀기 (꼬리잡기) ============ */
+#screen-pet[data-state="playing"] .pet-inner {
+  animation: self-play 0.8s ease-in-out infinite;
+}
+
+#screen-pet[data-state="playing"] .pet-tail {
+  animation-duration: 0.3s;
+}
+
+@keyframes self-play {
+
+  0%,
+  100% {
+    transform: scaleX(var(--facing)) rotate(0deg);
+  }
+
+  25% {
+    transform: scaleX(var(--facing)) rotate(-8deg);
+  }
+
+  75% {
+    transform: scaleX(var(--facing)) rotate(8deg);
+  }
+}
