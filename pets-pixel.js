@@ -300,6 +300,48 @@
   )}
     </svg>`;
 
+  // 도트 캣타워. 상판 표면이 y=35px 라 일반 테마 restY(48)를 그대로 쓸 수 있다.
+  const TOWER_PIXEL = `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+      ${rectsFromRows(
+    {
+      x: 2, y: 7, rows: [
+        'wwwwwwwwwwwwwwww',
+        'cccccccccccccccc',
+        '......pppp......',
+        '......pspp......',
+        '......pppp......',
+        '......pspp......',
+        '......pppp......',
+        '......pspp......',
+        '......pppp......',
+        '....bbbbbbbb....',
+        '...cccccccccc...',
+      ],
+    },
+    { w: '#fff5e6', c: '#c89f6e', p: '#e8cba0', s: '#d4b088', b: '#d9b98c' },
+    HOUSE_CELL,
+  )}
+    </svg>`;
+
+  const BASKET_PIXEL = `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+      ${rectsFromRows(
+    {
+      x: 2, y: 12, rows: [
+        '....rrrrrrrr....',
+        '..rrwwwwwwwwrr..',
+        '.rrwwwwwwwwwwrr.',
+        '.rrrrrrrrrrrrrr.',
+        '..ffffffffffff..',
+        '...ffffffffff...',
+      ],
+    },
+    { r: '#c9885e', w: '#fff5e6', f: '#b8744a' },
+    HOUSE_CELL,
+  )}
+    </svg>`;
+
   const PET_SVGS_PIXEL = {
     cat: CAT,
     dog: DOG,
@@ -313,10 +355,12 @@
   global.PIXEL_PET_DEFS = DEFS;
   global.buildPixelPet = buildPet;
   global.HOUSE_SVG_PIXEL = CUSHION;
+  global.HOUSE_SVGS_PIXEL = { cushion: CUSHION, tower: TOWER_PIXEL, basket: BASKET_PIXEL };
 
+  // house 키는 dev-preview 등 옛 소비자용 (= cushion). 새 코드는 houses 맵을 쓴다.
   global.PET_THEMES = {
-    normal: { pets: global.PET_SVGS, house: global.HOUSE_SVG },
-    pixel: { pets: PET_SVGS_PIXEL, house: CUSHION },
+    normal: { pets: global.PET_SVGS, house: global.HOUSE_SVG, houses: global.HOUSE_SVGS },
+    pixel: { pets: PET_SVGS_PIXEL, house: CUSHION, houses: global.HOUSE_SVGS_PIXEL },
   };
   global.PET_THEME_LIST = ['normal', 'pixel'];
   global.PET_THEME_NAMES = { normal: 'Normal', pixel: 'Pixel' };

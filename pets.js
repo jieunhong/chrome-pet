@@ -191,6 +191,41 @@
     </svg>
   `;
 
+  // 캣타워: 상판 위에서 잔다. restY 는 HOUSE_STYLES 에서 상판 높이에 맞춘다.
+  const TOWER = `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="50" cy="94" rx="42" ry="5" fill="rgba(0,0,0,0.1)"/>
+      <rect x="20" y="86" width="60" height="9" rx="4.5" fill="#c89f6e"/>
+      <rect x="20" y="86" width="60" height="4" rx="2" fill="#d9b98c"/>
+      <rect x="43" y="46" width="14" height="42" fill="#e8cba0"/>
+      <g stroke="#d4b088" stroke-width="1.6" stroke-linecap="round">
+        <line x1="43" y1="52" x2="57" y2="54"/>
+        <line x1="43" y1="59" x2="57" y2="61"/>
+        <line x1="43" y1="66" x2="57" y2="68"/>
+        <line x1="43" y1="73" x2="57" y2="75"/>
+        <line x1="43" y1="80" x2="57" y2="82"/>
+      </g>
+      <rect x="12" y="38" width="76" height="10" rx="5" fill="#c89f6e"/>
+      <ellipse cx="50" cy="39.5" rx="34" ry="4.5" fill="#fff5e6"/>
+    </svg>
+  `;
+
+  // 바구니 침대: 앞 테두리가 낮아 안에 폭 안긴 느낌을 준다
+  const BASKET = `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="50" cy="92" rx="44" ry="5.5" fill="rgba(0,0,0,0.1)"/>
+      <ellipse cx="50" cy="70" rx="38" ry="17" fill="#c9885e"/>
+      <ellipse cx="50" cy="71" rx="31" ry="11" fill="#fff5e6"/>
+      <ellipse cx="50" cy="72" rx="27" ry="8.5" fill="#ffffff" opacity="0.65"/>
+      <path d="M12 70 Q50 98 88 70 Q86 86 50 91 Q14 86 12 70 Z" fill="#b8744a"/>
+      <g opacity="0.25" fill="none" stroke="#8a5230" stroke-width="0.8" stroke-linecap="round">
+        <path d="M24 79 Q28 85 34 87"/>
+        <path d="M76 79 Q72 85 66 87"/>
+        <path d="M42 86 Q50 89 58 86"/>
+      </g>
+    </svg>
+  `;
+
   global.PET_SVGS = { cat: CAT, dog: DOG, maltese_white: MALTESE_WHITE, hamster: HAMSTER, dino: DINO };
   global.PET_NAMES = {
     cat: 'Ginger Cat',
@@ -202,4 +237,13 @@
   global.PET_LIST = ['cat', 'dog', 'maltese_white', 'hamster', 'dino'];
   global.DEFAULT_PET = 'cat';
   global.HOUSE_SVG = CUSHION;
+  global.HOUSE_SVGS = { cushion: CUSHION, tower: TOWER, basket: BASKET };
+  // restY: 잘 때 펫 박스의 바닥이 집 박스 top 에서 몇 px 아래에 오는지 (스타일별 잠자리 높이)
+  global.HOUSE_STYLES = {
+    cushion: { name: 'Cushion', restY: 85 },
+    tower: { name: 'Cat Tower', restY: 48 },
+    basket: { name: 'Basket', restY: 80 },
+  };
+  global.HOUSE_STYLE_LIST = ['cushion', 'tower', 'basket'];
+  global.DEFAULT_HOUSE = 'cushion';
 })(typeof window !== 'undefined' ? window : self);

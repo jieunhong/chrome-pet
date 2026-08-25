@@ -129,7 +129,8 @@
       transform: scale(1);
     }
 
-    .name-section {
+    .name-section,
+    .house-section {
       margin-top: 16px;
       padding-top: 16px;
       border-top: 1px dashed #d4b088;
@@ -138,11 +139,17 @@
       gap: 8px;
     }
 
-    .name-section label {
+    .name-section label,
+    .house-section label {
       font-size: 11px;
       font-weight: 700;
       color: #8a6a54;
       margin-left: 2px;
+    }
+
+    .house-section .pet-card svg {
+      width: 52px;
+      height: 52px;
     }
 
     .name-input-group {
@@ -220,6 +227,11 @@
   <h1>🐾 Pick a Pet</h1>
   <div class="theme-tabs" id="themeTabs"></div>
   <div class="pet-grid" id="grid"></div>
+
+  <div class="house-section">
+    <label>Pet Bed</label>
+    <div class="pet-grid" id="houseGrid"></div>
+  </div>
 
   <div class="name-section">
     <label for="petNameInput">Pet Name</label>
