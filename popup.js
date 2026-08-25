@@ -21,11 +21,14 @@
   mountDonate();
 
   const grid = document.getElementById('grid');
+  const houseGrid = document.getElementById('houseGrid');
   const themeTabs = document.getElementById('themeTabs');
   let currentPet = window.DEFAULT_PET || 'cat';
   let currentTheme = window.DEFAULT_THEME || 'normal';
+  let currentHouse = window.DEFAULT_HOUSE || 'cushion';
 
   const themePets = () => window.PET_THEMES[currentTheme].pets;
+  const themeHouses = () => window.PET_THEMES[currentTheme].houses || {};
 
   // storage 저장 -> content script 가 onChanged 로 감지.
   // onChanged 가 가끔 안 뜨는 경우가 있어 메시지로도 한 번 더 알린다.
@@ -73,11 +76,37 @@
     });
   }
 
+  function renderHouseCards() {
+    const houses = themeHouses();
+    houseGrid.innerHTML = '';
+    (window.HOUSE_STYLE_LIST || []).forEach((styleKey) => {
+      const card = document.createElement('button');
+      card.className = 'pet-card' + (styleKey === currentHouse ? ' selected' : '');
+      card.dataset.house = styleKey;
+      card.innerHTML = `
+        <div class="check">✓</div>
+        ${houses[styleKey] || ''}
+        <div class="name">${window.HOUSE_STYLES[styleKey].name}</div>
+      `;
+      card.addEventListener('click', () => selectHouse(styleKey));
+      houseGrid.appendChild(card);
+    });
+  }
+
+  function selectHouse(styleKey) {
+    currentHouse = styleKey;
+    houseGrid.querySelectorAll('.pet-card').forEach((c) => {
+      c.classList.toggle('selected', c.dataset.house === styleKey);
+    });
+    broadcast({ houseStyle: styleKey }, { type: 'CHANGE_HOUSE', house: styleKey });
+  }
+
   function selectTheme(theme) {
     if (theme === currentTheme) return;
     currentTheme = theme;
     renderThemeTabs();
     renderCards();
+    renderHouseCards();
     broadcast({ theme }, { type: 'CHANGE_THEME', theme });
   }
 
@@ -104,15 +133,18 @@
 
   // 저장된 값 불러와서 초기 렌더
   if (chrome && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet', 'petName', 'theme'], (result) => {
+    chrome.storage.local.get(['pet', 'petName', 'theme', 'houseStyle'], (result) => {
       if (result.pet) currentPet = result.pet;
       if (result.petName) nameInput.value = result.petName;
       if (result.theme && window.PET_THEMES[result.theme]) currentTheme = result.theme;
+      if (result.houseStyle && window.HOUSE_STYLES[result.houseStyle]) currentHouse = result.houseStyle;
       renderThemeTabs();
       renderCards();
+      renderHouseCards();
     });
   } else {
     renderThemeTabs();
     renderCards();
+    renderHouseCards();
   }
 })();

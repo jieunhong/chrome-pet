@@ -45,11 +45,16 @@
   // 사용자가 지정한 방석 위치(왼쪽 기준 px). 저장값은 그대로 두고 화면에 그릴 때만 clamp 한다.
   let cushionX = window.innerWidth - CUSHION_W - CUSHION_MARGIN_RIGHT;
 
+  let currentHouse = window.DEFAULT_HOUSE || 'cushion';
+
   const homeLeft = () => Math.min(Math.max(cushionX, 0), window.innerWidth - CUSHION_W);
   const homeTop = () => window.innerHeight - CUSHION_H - CUSHION_MARGIN_BOTTOM;
   // 펫(80)을 방석(100) 가운데에 놓는다
   const petHomeX = () => homeLeft() + (CUSHION_W - PET_W) / 2;
-  const petHomeY = () => homeTop() + 85 - PET_H; // 이전의 안정적인 중앙 좌표로 복구
+  // 잠자리 높이는 집 스타일마다 다르다 (캣타워는 상판 위에서 잔다)
+  const houseRestY = () =>
+    ((window.HOUSE_STYLES || {})[currentHouse] || { restY: 85 }).restY;
+  const petHomeY = () => homeTop() + houseRestY() - PET_H;
 
   // ============ 펫 DOM 생성 ============
   const pet = document.createElement('div');
@@ -58,7 +63,13 @@
 
   function themeAssets() {
     const themes = window.PET_THEMES;
-    return (themes && (themes[currentTheme] || themes.normal)) || { pets: {}, house: '' };
+    return (themes && (themes[currentTheme] || themes.normal)) || { pets: {}, houses: {} };
+  }
+
+  function houseSVG() {
+    const assets = themeAssets();
+    const houses = assets.houses || {};
+    return houses[currentHouse] || houses.cushion || assets.house || '';
   }
 
   // 이름은 사용자 입력이라 페이지 DOM 에 넣기 전에 이스케이프한다
@@ -94,7 +105,8 @@
 
   function renderHouse() {
     house.dataset.theme = currentTheme;
-    house.innerHTML = themeAssets().house;
+    house.dataset.house = currentHouse;
+    house.innerHTML = houseSVG();
   }
   renderHouse();
 
@@ -125,7 +137,18 @@
     renderHouse();
   }
 
+  function setHouseStyle(style) {
+    if (!window.HOUSE_STYLES || !window.HOUSE_STYLES[style] || style === currentHouse) return;
+    currentHouse = style;
+    renderHouse();
+    if (isAtHome) {
+      x = petHomeX();
+      y = petHomeY();
+    }
+  }
+
   function setAtHome(value) {
+    if (isAtHome === !!value) return; // storage 에코로 두 번 불려도 상태를 다시 밟지 않는다
     isAtHome = !!value;
     if (isAtHome) {
       pet.classList.add('at-home');
@@ -159,13 +182,16 @@
 
   // storage 에서 펫 타입 및 이름 읽어오기 및 리스너 등록
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet', 'petName', 'atHome', 'cushionX', 'theme'], (result) => {
+    chrome.storage.local.get(['pet', 'petName', 'atHome', 'cushionX', 'theme', 'houseStyle'], (result) => {
       if (typeof result.cushionX === 'number') {
         cushionX = result.cushionX;
         applyCushionPosition();
       }
       if (result.theme) {
         setTheme(result.theme);
+      }
+      if (result.houseStyle) {
+        setHouseStyle(result.houseStyle);
       }
       if (result.petName) {
         currentName = result.petName;
@@ -187,6 +213,7 @@
           applyCushionPosition();
         }
         if (changes.theme) setTheme(changes.theme.newValue);
+        if (changes.houseStyle) setHouseStyle(changes.houseStyle.newValue);
         if (changes.pet) setPet(changes.pet.newValue);
         if (changes.petName) setName(changes.petName.newValue);
         if (changes.atHome) setAtHome(!!changes.atHome.newValue);
@@ -204,6 +231,8 @@
         setName(message.name);
       } else if (message.type === 'CHANGE_THEME' && message.theme) {
         setTheme(message.theme);
+      } else if (message.type === 'CHANGE_HOUSE' && message.house) {
+        setHouseStyle(message.house);
       } else if (message.type === 'PET_PRESENCE') {
         setPresence(!!message.present);
       }
