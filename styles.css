@@ -142,6 +142,12 @@
   display: none;
 }
 
+/* 다른 탭/창이 활성일 때 숨김 — 펫은 항상 한 곳에만 있는다 */
+#screen-pet.away,
+#pet-house.away {
+  display: none;
+}
+
 #screen-pet.dragging {
   cursor: grabbing;
 }

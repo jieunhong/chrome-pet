@@ -28,6 +28,9 @@
   let isDevToolsOpen = false;
   let removedFromPage = false;
 
+  // 크롬 창을 여러 개 띄워도 펫은 "지금 보고 있는 탭" 한 곳에만 있는다
+  let presentOnTab = true;
+
   // ============ 펫 방석 (Cushion) ============
   const CUSHION_W = 100;
   const CUSHION_H = 100;
@@ -196,8 +199,21 @@
         setName(message.name);
       } else if (message.type === 'CHANGE_THEME' && message.theme) {
         setTheme(message.theme);
+      } else if (message.type === 'PET_PRESENCE') {
+        setPresence(!!message.present);
       }
     });
+
+    // 시작 시 background 에게 "이 탭이 펫이 있어야 하는 탭인지" 물어본다.
+    // 확장이 리로드되면 고아가 된 content script 의 sendMessage 가 동기로 던지므로 감싼다.
+    try {
+      chrome.runtime.sendMessage({ type: 'PET_PRESENCE_QUERY' }, (res) => {
+        if (chrome.runtime.lastError) return;
+        if (res && typeof res.present === 'boolean') setPresence(res.present);
+      });
+    } catch (e) {
+      // extension context invalidated — 이 페이지의 스크립트는 그냥 조용히 산다
+    }
   }
 
   const PET_THOUGHTS = {
@@ -309,6 +325,30 @@
     z.style.top = (y) + 'px';
     document.body.appendChild(z);
     setTimeout(() => z.remove(), 3000);
+  }
+
+  // ============ 탭 간 단일 등장 (presence) ============
+  function clearFloaties() {
+    document.querySelectorAll('.zzz-particle, .heart-particle').forEach((el) => el.remove());
+  }
+
+  function setPresence(present) {
+    if (presentOnTab === present) return;
+    presentOnTab = present;
+    pet.classList.toggle('away', !present);
+    house.classList.toggle('away', !present);
+    if (!present) {
+      clearFloaties();
+      closeMenu();
+      isDragging = false;
+      pet.classList.remove('dragging');
+      if (['held'].indexOf(state) !== -1) {
+        state = 'idle';
+        stateTimer = 60;
+      }
+    } else {
+      scheduleUpdate();
+    }
   }
 
   // ============ 마우스 이벤트 ============
@@ -492,7 +532,7 @@
     removedFromPage = true;
     pet.classList.add('hidden');
     house.classList.add('hidden');
-    document.querySelectorAll('.zzz-particle, .heart-particle').forEach((el) => el.remove());
+    clearFloaties();
   }
 
   // content script 에서는 chrome.action 을 쓸 수 없어 background 에 부탁한다
@@ -595,8 +635,8 @@
 
   function update() {
     rafId = 0;
-    // 개발자도구가 열려 있거나 이 페이지에서 치운 상태면 루프 자체를 멈춘다
-    if (isDevToolsOpen || removedFromPage) return;
+    // 개발자도구가 열려 있거나, 이 페이지에서 치웠거나, 다른 탭/창에 펫이 있으면 루프를 멈춘다
+    if (isDevToolsOpen || removedFromPage || !presentOnTab) return;
 
     stateTimer--;
 
@@ -769,12 +809,18 @@
     house.classList.toggle('devtools-hidden', open);
 
     if (open) {
-      // 이미 떠 있는 파티클은 펫과 무관하게 남으므로 같이 치운다
-      document.querySelectorAll('.zzz-particle, .heart-particle').forEach((el) => el.remove());
+      // 이미 떠 있는 파티클/놀이 소품은 펫과 무관하게 남으므로 같이 치운다
+      clearFloaties();
+      closeMenu();
       isDragging = false;
       isDraggingHouse = false;
       pet.classList.remove('dragging');
       house.classList.remove('dragging');
+      // 드래그 중이었으면 held 로 얼어붙지 않게 지상 상태로 되돌린다
+      if (['held'].indexOf(state) !== -1) {
+        state = 'idle';
+        stateTimer = 60;
+      }
     } else {
       scheduleUpdate();
     }
