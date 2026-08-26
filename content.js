@@ -315,6 +315,12 @@
       chase: ['🏃', '🌿', '🦕!', 'chomp!', 'mine!'],
       dance: ['🎵', '🎶', '🦕', '♪', 'dance~', 'wooo!'],
     },
+    harp_seal: {
+      idle: ['🦭', '💤', '✨', '🐟', '♡', '❄️', '💭', '🌊', '😊', '🥰', 'flop~', 'zzZ', 'boop', 'hehe', '…', 'yawn~', 'chilly ♡', 'roll roll'],
+      click: ['🦭!', '💕', '🥺', '😳', '🫶', '!!', 'hehe', 'ork ork!', 'boop me!', 'more!', 'flap flap!', 'squish!'],
+      chase: ['🏃', '🏐', '🦭!', 'bounce!', 'mine!'],
+      dance: ['🎵', '🎶', '🦭', '♪', 'dance~', 'wooo!'],
+    },
   };
 
   // 사용자 로컬 시간 기준. 탭을 오래 켜둬도 시간이 넘어가면 반영되도록 부를 때마다 계산한다.
@@ -396,8 +402,16 @@
   }
 
   // ============ 놀이 (공 던지기 / 딸랑이) ============
-  const PLAY_KIND = { cat: 'teaser', dog: 'ball', maltese_white: 'ball', hamster: 'ball', dino: 'ball' };
-  const FOOD_EMOJI = { cat: '🐟', dog: '🦴', maltese_white: '🦴', hamster: '🌻', dino: '🌿' };
+  const PLAY_KIND = {
+    cat: 'teaser', dog: 'ball', maltese_white: 'ball', hamster: 'ball', dino: 'ball',
+    harp_seal: 'ball',
+  };
+  // 공 놀이라도 펫마다 굴리는 물건이 다르다 (물범은 부표)
+  const TOY_EMOJI = { harp_seal: '🏐' };
+  const FOOD_EMOJI = {
+    cat: '🐟', dog: '🦴', maltese_white: '🦴', hamster: '🌻', dino: '🌿',
+    harp_seal: '🐟',
+  };
   const TOY_SIZE = 26;
   const toyGroundY = () => window.innerHeight - 30 - TOY_SIZE;
 
@@ -432,7 +446,7 @@
     if (playMode === 'ball') {
       toyEl = document.createElement('div');
       toyEl.className = 'pet-toy';
-      toyEl.textContent = '🎾';
+      toyEl.textContent = TOY_EMOJI[currentPet] || '🎾';
       document.body.appendChild(toyEl);
       toyX = Math.min(Math.max(fromX, 20), window.innerWidth - TOY_SIZE - 20);
       toyY = Math.min(Math.max(fromY, 20), window.innerHeight - 100);
@@ -721,7 +735,7 @@
   function renderMenu() {
     const playLabel = (PLAY_KIND[currentPet] || 'ball') === 'teaser'
       ? '🪶 Play (teaser)'
-      : '🎾 Throw a ball';
+      : `${TOY_EMOJI[currentPet] || '🎾'} Throw a ball`;
     menu.innerHTML = [
       ['play', playLabel],
       ['feed', `${FOOD_EMOJI[currentPet] || '🍖'} Feed`],

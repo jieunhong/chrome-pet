@@ -956,3 +956,9 @@
     opacity: 1;
   }
 }
+
+/* ============ 신규 펫 개성 ============ */
+/* 물범 뒷지느러미 밑동 */
+#screen-pet[data-pet="harp_seal"] .pet-tail {
+  transform-origin: 18px 58px;
+}
