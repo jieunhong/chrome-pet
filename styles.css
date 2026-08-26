@@ -349,14 +349,18 @@
 #screen-pet[data-state="running"] .pet-leg-back-1,
 #screen-pet[data-state="running"] .pet-leg-front-1,
 #screen-pet[data-state="chasing"] .pet-leg-back-1,
-#screen-pet[data-state="chasing"] .pet-leg-front-1 {
+#screen-pet[data-state="chasing"] .pet-leg-front-1,
+#screen-pet[data-state="fetch"] .pet-leg-back-1,
+#screen-pet[data-state="fetch"] .pet-leg-front-1 {
   animation: leg-run 0.3s linear infinite;
 }
 
 #screen-pet[data-state="running"] .pet-leg-back-2,
 #screen-pet[data-state="running"] .pet-leg-front-2,
 #screen-pet[data-state="chasing"] .pet-leg-back-2,
-#screen-pet[data-state="chasing"] .pet-leg-front-2 {
+#screen-pet[data-state="chasing"] .pet-leg-front-2,
+#screen-pet[data-state="fetch"] .pet-leg-back-2,
+#screen-pet[data-state="fetch"] .pet-leg-front-2 {
   animation: leg-run 0.3s linear infinite reverse;
 }
 
@@ -416,7 +420,9 @@
 #screen-pet[data-state="running"] .pet-body-shape,
 #screen-pet[data-state="running"] .pet-head,
 #screen-pet[data-state="chasing"] .pet-body-shape,
-#screen-pet[data-state="chasing"] .pet-head {
+#screen-pet[data-state="chasing"] .pet-head,
+#screen-pet[data-state="fetch"] .pet-body-shape,
+#screen-pet[data-state="fetch"] .pet-head {
   animation: body-bob 0.3s ease-in-out infinite;
 }
 
@@ -842,5 +848,49 @@
 
   75% {
     transform: scaleX(var(--facing)) rotate(8deg);
+  }
+}
+
+/* ============ 놀이 소품 ============ */
+.pet-toy {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483647;
+  font-size: 22px;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.25));
+}
+
+.pet-teaser {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483647;
+  font-size: 26px;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pet-teaser span {
+  display: inline-block;
+  transform-origin: top center;
+  animation: teaser-swing 0.7s ease-in-out infinite;
+}
+
+@keyframes teaser-swing {
+
+  0%,
+  100% {
+    transform: rotate(-18deg);
+  }
+
+  50% {
+    transform: rotate(18deg);
   }
 }
