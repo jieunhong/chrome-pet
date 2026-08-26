@@ -36,6 +36,9 @@
   let chaseCooldownUntil = 0;
   let noticeWillChase = false;
 
+  // 먹이/몸무게. 0(정상) ~ 3(통통). 놀아주면 빠지고, 정상 밑으로는 안 빠진다.
+  let petWeight = 0;
+
   // 놀이 상태
   let playMode = null; // null | 'ball' | 'teaser'
   let playStartedAt = 0;
@@ -152,17 +155,32 @@
     }
   }
 
+  function applyWeight() {
+    pet.style.setProperty('--chub', String(1 + petWeight * 0.06));
+  }
+
+  function setWeight(w) {
+    const next = Math.max(0, Math.min(3, w));
+    if (next === petWeight) return;
+    petWeight = next;
+    applyWeight();
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ petWeight });
+    }
+  }
+
   function setAtHome(value) {
     if (isAtHome === !!value) return; // storage 에코로 두 번 불려도 상태를 다시 밟지 않는다
     isAtHome = !!value;
     if (isAtHome) {
       pet.classList.add('at-home');
-      // 진행 중이던 드래그/말풍선/놀이 정리
+      // 진행 중이던 드래그/말풍선/놀이/먹이 정리
       isDragging = false;
       pet.classList.remove('dragging');
       if (thought) thought.classList.remove('show');
       removeToy();
       removeTeaser();
+      removeFood();
       playMode = null;
       // 펫을 집 안으로 즉시 이동시키고 잠재우기
       x = petHomeX();
@@ -190,7 +208,7 @@
 
   // storage 에서 펫 타입 및 이름 읽어오기 및 리스너 등록
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet', 'petName', 'atHome', 'cushionX', 'theme', 'houseStyle'], (result) => {
+    chrome.storage.local.get(['pet', 'petName', 'atHome', 'cushionX', 'theme', 'houseStyle', 'petWeight'], (result) => {
       if (typeof result.cushionX === 'number') {
         cushionX = result.cushionX;
         applyCushionPosition();
@@ -200,6 +218,10 @@
       }
       if (result.houseStyle) {
         setHouseStyle(result.houseStyle);
+      }
+      if (typeof result.petWeight === 'number') {
+        petWeight = Math.max(0, Math.min(3, result.petWeight));
+        applyWeight();
       }
       if (result.petName) {
         currentName = result.petName;
@@ -225,6 +247,10 @@
         if (changes.pet) setPet(changes.pet.newValue);
         if (changes.petName) setName(changes.petName.newValue);
         if (changes.atHome) setAtHome(!!changes.atHome.newValue);
+        if (changes.petWeight && changes.petWeight.newValue !== petWeight) {
+          petWeight = Math.max(0, Math.min(3, changes.petWeight.newValue || 0));
+          applyWeight();
+        }
       }
     });
   }
@@ -371,6 +397,7 @@
 
   // ============ 놀이 (공 던지기 / 딸랑이) ============
   const PLAY_KIND = { cat: 'teaser', dog: 'ball', maltese_white: 'ball', hamster: 'ball', dino: 'ball' };
+  const FOOD_EMOJI = { cat: '🐟', dog: '🦴', maltese_white: '🦴', hamster: '🌻', dino: '🌿' };
   const TOY_SIZE = 26;
   const toyGroundY = () => window.innerHeight - 30 - TOY_SIZE;
 
@@ -381,6 +408,9 @@
   let toyVY = 0;
   let teaserEl = null;
   let teaserUntil = 0;
+  let foodEl = null;
+  let foodX = 0;
+  let foodDroppedAt = 0;
 
   function removeToy() {
     if (toyEl) { toyEl.remove(); toyEl = null; }
@@ -388,10 +418,14 @@
   function removeTeaser() {
     if (teaserEl) { teaserEl.remove(); teaserEl = null; }
   }
+  function removeFood() {
+    if (foodEl) { foodEl.remove(); foodEl = null; }
+  }
 
   function startPlay(fromX, fromY) {
     removeToy();
     removeTeaser();
+    removeFood();
     playStartedAt = Date.now();
     playMode = PLAY_KIND[currentPet] || 'ball';
 
@@ -430,6 +464,7 @@
     // 놀이가 소유한 상태(fetch, 놀이 중 점프)에서만 상태를 바꾼다.
     const ownsState = state === 'fetch' || (wasPlaying && (state === 'jumping' || state === 'falling'));
     if (success) {
+      setWeight(petWeight - 1); // 운동했으니 살이 빠진다 (정상 밑으로는 안 내려감)
       showThought('💕');
       if (ownsState) {
         state = 'dancing';
@@ -469,11 +504,34 @@
     teaserEl.style.transform = `translate(${mouseX - 13}px, ${mouseY + 6}px)`;
   }
 
+  // ============ 먹이 주기 ============
+  function startFeed() {
+    removeToy();
+    removeTeaser();
+    removeFood();
+    playMode = null;
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    foodX = Math.min(
+      window.innerWidth - 60,
+      Math.max(20, x + PET_W / 2 + dir * (90 + Math.random() * 70)),
+    );
+    foodEl = document.createElement('div');
+    foodEl.className = 'pet-food';
+    foodEl.textContent = FOOD_EMOJI[currentPet] || '🍖';
+    foodEl.style.left = foodX + 'px';
+    document.body.appendChild(foodEl);
+    foodDroppedAt = Date.now();
+    state = 'eatwalk';
+    stateTimer = 600;
+    showThought('!');
+  }
+
   // ============ 탭 간 단일 등장 (presence) ============
   function clearFloaties() {
     document.querySelectorAll('.zzz-particle, .heart-particle').forEach((el) => el.remove());
     removeToy();
     removeTeaser();
+    removeFood();
     playMode = null;
   }
 
@@ -487,7 +545,7 @@
       closeMenu();
       isDragging = false;
       pet.classList.remove('dragging');
-      if (['fetch', 'held', 'noticing'].indexOf(state) !== -1) {
+      if (['fetch', 'eatwalk', 'eating', 'held', 'noticing'].indexOf(state) !== -1) {
         state = 'idle';
         stateTimer = 60;
       }
@@ -659,13 +717,14 @@
   let menuOpenX = 0;
   let menuOpenY = 0;
 
-  // 펫 종류(공/딸랑이)와 잠 상태에 따라 항목이 달라져서 열 때마다 다시 그린다
+  // 펫 종류(공/딸랑이, 먹이 이모지)와 잠 상태에 따라 항목이 달라져서 열 때마다 다시 그린다
   function renderMenu() {
     const playLabel = (PLAY_KIND[currentPet] || 'ball') === 'teaser'
       ? '🪶 Play (teaser)'
       : '🎾 Throw a ball';
     menu.innerHTML = [
       ['play', playLabel],
+      ['feed', `${FOOD_EMOJI[currentPet] || '🍖'} Feed`],
       ['settings', '⚙️ Settings'],
       ['remove', '🚫 Remove from this page'],
       isAtHome ? ['wake', '🌞 Wake up'] : ['sleep', '💤 Go to sleep'],
@@ -712,6 +771,7 @@
 
   const MENU_ACTIONS = {
     play: () => { wakeUpIfHome(); startPlay(menuOpenX, menuOpenY); },
+    feed: () => { wakeUpIfHome(); startFeed(); },
     settings: openSettings,
     remove: removeFromPage,
     sleep: () => applyAtHome(true),
@@ -824,6 +884,14 @@
     // 딸랑이는 실제로 잡으려고 논 적이 있어야 "운동한 것"으로 친다
     if (playMode === 'teaser' && Date.now() > teaserUntil) endPlay(teaserCatches > 0);
     if (playMode === 'ball' && Date.now() - playStartedAt > 30000) endPlay(false);
+    // 먹이를 먹으러 가다 다른 일(클릭/댄스/잠 등)에 정신이 팔리면 먹이가 페이지에 영영 남는다
+    if (foodEl && Date.now() - foodDroppedAt > 45000) {
+      removeFood();
+      if (state === 'eatwalk' || state === 'eating') {
+        state = 'idle';
+        stateTimer = 60;
+      }
+    }
 
     if (isAtHome) {
       // 방석 위에서 가만히 자기. 창 크기 변경에도 위치 재고정.
@@ -850,13 +918,14 @@
       const cursorLow = mouseY > window.innerHeight - 220;
       const cursorDist = mouseX - (x + PET_W / 2);
       const cursorAbsDist = Math.abs(cursorDist);
+      const speedMul = 1 - petWeight * 0.06; // 통통해지면 조금 느릿해진다
 
       // 커서를 발견해도 바로 달려들지 않는다.
       // 먼저 "!" 하고 알아채고(noticing), 따라갈지는 그때그때 다르며,
       // 한 번 따라갔다 오면 한동안(쿨다운) 자기 할 일을 한다.
       const calm = ['idle', 'sitting', 'walking', 'running'].indexOf(state) !== -1;
       if (
-        calm && !playMode &&
+        calm && !playMode && !foodEl &&
         cursorActive && cursorLow &&
         cursorAbsDist < 350 && cursorAbsDist > CHASE_STOP_DIST + 20 &&
         Date.now() > chaseCooldownUntil
@@ -891,7 +960,7 @@
           state = 'idle';
           stateTimer = 120 + Math.random() * 120;
         } else {
-          vx = dx > 0 ? 1.2 : -1.2;
+          vx = (dx > 0 ? 1.2 : -1.2) * speedMul;
           facing = dx > 0 ? 1 : -1;
         }
       } else if (state === 'running') {
@@ -900,7 +969,7 @@
           state = 'idle';
           stateTimer = 60 + Math.random() * 120;
         } else {
-          vx = dx > 0 ? 3.2 : -3.2;
+          vx = (dx > 0 ? 3.2 : -3.2) * speedMul;
           facing = dx > 0 ? 1 : -1;
         }
       } else if (state === 'chasing') {
@@ -914,7 +983,7 @@
           facing = dx > 0 ? 1 : -1;
           chaseCooldownUntil = Date.now() + 12000 + Math.random() * 15000;
         } else {
-          vx = dx > 0 ? 4.0 : -4.0;
+          vx = (dx > 0 ? 4.0 : -4.0) * speedMul;
           facing = dx > 0 ? 1 : -1;
         }
       } else if (state === 'fetch') {
@@ -925,7 +994,7 @@
             showThought(getThoughts('chase'));
             endPlay(true);
           } else if (Math.abs(dx) > 6) {
-            vx = dx > 0 ? 3.8 : -3.8;
+            vx = (dx > 0 ? 3.8 : -3.8) * speedMul;
             facing = dx > 0 ? 1 : -1;
           } else {
             vx = 0;
@@ -933,7 +1002,7 @@
         } else if (playMode === 'teaser' && teaserEl) {
           const dx = mouseX - (x + PET_W / 2);
           if (Math.abs(dx) > 24) {
-            vx = dx > 0 ? 4.2 : -4.2;
+            vx = (dx > 0 ? 4.2 : -4.2) * speedMul;
             facing = dx > 0 ? 1 : -1;
           } else {
             vx = 0;
@@ -949,6 +1018,32 @@
           }
         } else {
           endPlay(false);
+        }
+      } else if (state === 'eatwalk') {
+        if (!foodEl) {
+          state = 'idle';
+          stateTimer = 60;
+        } else {
+          const dx = foodX + 11 - (x + PET_W / 2);
+          if (Math.abs(dx) < 42 || stateTimer <= 0) {
+            vx = 0;
+            facing = dx > 0 ? 1 : -1;
+            state = 'eating';
+            stateTimer = 160;
+            showThought('nom nom');
+          } else {
+            vx = (dx > 0 ? 2.4 : -2.4) * speedMul;
+            facing = dx > 0 ? 1 : -1;
+          }
+        }
+      } else if (state === 'eating') {
+        vx = 0;
+        if (stateTimer <= 0) {
+          removeFood();
+          setWeight(petWeight + 1); // 잘 먹었으니 조금 통통해진다
+          showThought('😋');
+          state = 'sitting';
+          stateTimer = 200;
         }
       } else if (state === 'playing') {
         vx = 0;
@@ -1071,7 +1166,7 @@
       pet.classList.remove('dragging');
       house.classList.remove('dragging');
       // 드래그 중이었으면 held 로 얼어붙지 않게 지상 상태로 되돌린다
-      if (['fetch', 'held', 'noticing'].indexOf(state) !== -1) {
+      if (['fetch', 'eatwalk', 'eating', 'held', 'noticing'].indexOf(state) !== -1) {
         state = 'idle';
         stateTimer = 60;
       }
