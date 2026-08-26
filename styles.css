@@ -148,6 +148,17 @@
   display: none;
 }
 
+/* 몸무게(--chub)에 따라 살짝 통통하게. 방향 뒤집기는 .pet-inner 가 담당하므로 여기선 폭만 불린다 */
+#screen-pet .pet-inner>svg {
+  transform: scaleX(var(--chub, 1));
+  transform-origin: center bottom;
+}
+
+/* 도트 테마는 비정수 배율이 픽셀 격자를 뭉개므로 통통 효과를 끈다 (몸무게는 속도로만 드러난다) */
+#screen-pet[data-theme="pixel"] .pet-inner>svg {
+  transform: none;
+}
+
 #screen-pet.dragging {
   cursor: grabbing;
 }
@@ -337,12 +348,16 @@
 }
 
 #screen-pet[data-state="walking"] .pet-leg-back-1,
-#screen-pet[data-state="walking"] .pet-leg-front-1 {
+#screen-pet[data-state="walking"] .pet-leg-front-1,
+#screen-pet[data-state="eatwalk"] .pet-leg-back-1,
+#screen-pet[data-state="eatwalk"] .pet-leg-front-1 {
   animation: leg-walk 1.0s linear infinite;
 }
 
 #screen-pet[data-state="walking"] .pet-leg-back-2,
-#screen-pet[data-state="walking"] .pet-leg-front-2 {
+#screen-pet[data-state="walking"] .pet-leg-front-2,
+#screen-pet[data-state="eatwalk"] .pet-leg-back-2,
+#screen-pet[data-state="eatwalk"] .pet-leg-front-2 {
   animation: leg-walk 1.0s linear infinite reverse;
 }
 
@@ -413,7 +428,9 @@
 
 /* ============ 몸 바운스 ============ */
 #screen-pet[data-state="walking"] .pet-body-shape,
-#screen-pet[data-state="walking"] .pet-head {
+#screen-pet[data-state="walking"] .pet-head,
+#screen-pet[data-state="eatwalk"] .pet-body-shape,
+#screen-pet[data-state="eatwalk"] .pet-head {
   animation: body-bob 1.0s ease-in-out infinite;
 }
 
@@ -851,6 +868,26 @@
   }
 }
 
+/* ============ 먹기 ============ */
+#screen-pet[data-state="eating"] .pet-head {
+  /* fill-box 가 없으면 origin 이 뷰박스(50,50) 기준이 되어 머리가 몸 중심을 돈다 */
+  transform-box: fill-box;
+  transform-origin: center center;
+  animation: eat-bob 0.55s ease-in-out infinite;
+}
+
+@keyframes eat-bob {
+
+  0%,
+  100% {
+    transform: translate(2px, 2px) rotate(6deg);
+  }
+
+  50% {
+    transform: translate(4px, 7px) rotate(14deg);
+  }
+}
+
 /* ============ 놀이 소품 ============ */
 .pet-toy {
   position: fixed;
@@ -892,5 +929,30 @@
 
   50% {
     transform: rotate(18deg);
+  }
+}
+
+.pet-food {
+  position: fixed;
+  bottom: 26px;
+  z-index: 2147483646;
+  font-size: 22px;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.2));
+  animation: food-drop 0.4s ease-out;
+}
+
+@keyframes food-drop {
+  0% {
+    transform: translateY(-40px);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
