@@ -280,6 +280,49 @@
     eyes: [[17, 4]],
   });
 
+  const HARP_SEAL = definePet('harp_seal', {
+    palette: { w: '#f4f6fa', s: '#dfe3ea', g: '#c8cfda', b: '#ffb3c0', e: '#14141a', n: '#2a2a30' },
+    // 뒷지느러미 (가운데 갈래가 몸통에 붙는다)
+    tail: {
+      x: 2, y: 11, rows: [
+        'ss..',
+        '.sss',
+        'ss..',
+      ],
+    },
+    // g 점들이 하프무늬
+    body: {
+      x: 5, y: 9, rows: [
+        '...wwwww...',
+        '..wwwwwww..',
+        '.wwgwwgwww.',
+        'wwwwwwwwwww',
+        'wwgwwwwgwww',
+        '.wwwwwwwww.',
+        '..sssssss..',
+      ],
+    },
+    // 다리 대신 앞지느러미 두 개만 파닥거린다
+    legClasses: ['pet-leg-front-1', 'pet-leg-front-2'],
+    legs: [
+      { x: 9, y: 15, rows: ['ss'] },
+      { x: 13, y: 15, rows: ['ss'] },
+    ],
+    head: {
+      x: 11, y: 5, rows: [
+        '..wwwww..',
+        '.wwwwwww.',
+        'wwwwwwwww',
+        'wwwwwwwww',
+        'wwwwwwwww',
+        '.wwwwwww.',
+        '..sssss..',
+      ],
+    },
+    face: { x: 11, y: 9, rows: ['..b.n.b..'] },
+    eyes: [[13, 8], [17, 8]],
+  });
+
   const CUSHION = `
     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
       ${rectsFromRows(
@@ -342,12 +385,39 @@
   )}
     </svg>`;
 
+  // 도트 해먹. 처진 천의 바닥이 y=55~65px 라 restY(62)와 맞는다.
+  const HAMMOCK_PIXEL = `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+      ${rectsFromRows(
+    {
+      x: 2, y: 5, rows: [
+        'pp............pp',
+        'p..............p',
+        'pw............wp',
+        'p.ww........ww.p',
+        'p..www....www..p',
+        'p....wwwwww....p',
+        'p....wwwwww....p',
+        'p....ssssss....p',
+        'p..............p',
+        'p..............p',
+        'p..............p',
+        'p..............p',
+        'ppp..........ppp',
+      ],
+    },
+    { p: '#c89f6e', w: '#fff5e6', s: '#f3e0c0' },
+    HOUSE_CELL,
+  )}
+    </svg>`;
+
   const PET_SVGS_PIXEL = {
     cat: CAT,
     dog: DOG,
     maltese_white: MALTESE_WHITE,
     hamster: HAMSTER,
     dino: DINO,
+    harp_seal: HARP_SEAL,
   };
 
   global.PET_SVGS_PIXEL = PET_SVGS_PIXEL;
@@ -355,7 +425,9 @@
   global.PIXEL_PET_DEFS = DEFS;
   global.buildPixelPet = buildPet;
   global.HOUSE_SVG_PIXEL = CUSHION;
-  global.HOUSE_SVGS_PIXEL = { cushion: CUSHION, tower: TOWER_PIXEL, basket: BASKET_PIXEL };
+  global.HOUSE_SVGS_PIXEL = {
+    cushion: CUSHION, tower: TOWER_PIXEL, basket: BASKET_PIXEL, hammock: HAMMOCK_PIXEL,
+  };
 
   // house 키는 dev-preview 등 옛 소비자용 (= cushion). 새 코드는 houses 맵을 쓴다.
   global.PET_THEMES = {

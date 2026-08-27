@@ -168,6 +168,39 @@
     </svg>
   `;
 
+  // 하얀 아기 물범. 다리 대신 지느러미로 파닥거린다
+  const HARP_SEAL = `
+    <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+      <g class="pet-tail">
+        <ellipse cx="11" cy="56" rx="7" ry="3.4" fill="#dfe3ea" transform="rotate(-26 11 56)"/>
+        <ellipse cx="11" cy="62" rx="7" ry="3.4" fill="#d2d8e2" transform="rotate(22 11 62)"/>
+      </g>
+      <ellipse class="pet-body-shape" cx="42" cy="55" rx="23" ry="16" fill="#f4f6fa"/>
+      <ellipse cx="34" cy="46" rx="2.4" ry="1.6" fill="#c8cfda" opacity="0.8" transform="rotate(-15 34 46)"/>
+      <ellipse cx="44" cy="44" rx="2.2" ry="1.5" fill="#c8cfda" opacity="0.8" transform="rotate(10 44 44)"/>
+      <ellipse cx="38" cy="52" rx="2.2" ry="1.5" fill="#c8cfda" opacity="0.7" transform="rotate(20 38 52)"/>
+      <ellipse cx="50" cy="49" rx="2.4" ry="1.6" fill="#c8cfda" opacity="0.7" transform="rotate(-20 50 49)"/>
+      <ellipse class="pet-leg pet-leg-front-1" cx="48" cy="68" rx="6" ry="3.4" fill="#dfe3ea"/>
+      <ellipse class="pet-leg pet-leg-front-2" cx="59" cy="68" rx="6" ry="3.4" fill="#d2d8e2"/>
+      <g class="pet-head">
+        <circle cx="58" cy="39" r="13" fill="#f4f6fa"/>
+        <circle class="pet-eye pet-eye-left"  cx="53" cy="37" r="2.8" fill="#14141a"/>
+        <circle class="pet-eye pet-eye-right" cx="63" cy="37" r="2.8" fill="#14141a"/>
+        <circle cx="53.8" cy="36" r="1" fill="#fff"/>
+        <circle cx="63.8" cy="36" r="1" fill="#fff"/>
+        <path d="M56.6 42 L59.4 42 L58 44 Z" fill="#2a2a30"/>
+        <path d="M58 44 Q56.5 45.6 55.5 44.8 M58 44 Q59.5 45.6 60.5 44.8"
+              stroke="#2a2a30" stroke-width="0.8" fill="none" stroke-linecap="round"/>
+        <circle cx="52" cy="43" r="0.55" fill="#b8bfca"/>
+        <circle cx="51" cy="45" r="0.55" fill="#b8bfca"/>
+        <circle cx="64" cy="43" r="0.55" fill="#b8bfca"/>
+        <circle cx="65" cy="45" r="0.55" fill="#b8bfca"/>
+        <circle cx="49" cy="42" r="2.2" fill="#ffb3c0" opacity="0.45"/>
+        <circle cx="67" cy="42" r="2.2" fill="#ffb3c0" opacity="0.45"/>
+      </g>
+    </svg>
+  `;
+
   const CUSHION = `
     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
       <ellipse cx="50" cy="92" rx="46" ry="6" fill="rgba(0,0,0,0.1)"/>
@@ -226,24 +259,50 @@
     </svg>
   `;
 
-  global.PET_SVGS = { cat: CAT, dog: DOG, maltese_white: MALTESE_WHITE, hamster: HAMSTER, dino: DINO };
+  // 해먹: 천이 축 처진 가운데(y≈57~63)에 폭 안겨서 잔다. restY 는 HOUSE_STYLES 에서 맞춘다.
+  const HAMMOCK = `
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="50" cy="93" rx="45" ry="5.5" fill="rgba(0,0,0,0.1)"/>
+      <rect x="6" y="88" width="18" height="5" rx="2.5" fill="#b8905e"/>
+      <rect x="76" y="88" width="18" height="5" rx="2.5" fill="#b8905e"/>
+      <rect x="12" y="34" width="6" height="56" rx="3" fill="#c89f6e"/>
+      <rect x="13" y="34" width="2.5" height="56" rx="1.25" fill="#d9b98c"/>
+      <rect x="82" y="34" width="6" height="56" rx="3" fill="#c89f6e"/>
+      <rect x="83" y="34" width="2.5" height="56" rx="1.25" fill="#d9b98c"/>
+      <path d="M16 40 Q50 74 84 40 L84 52 Q50 86 16 52 Z"
+            fill="#fff5e6" stroke="#f3e0c0" stroke-width="1"/>
+      <path d="M18 45 Q50 78 82 45"
+            stroke="#f3d5b5" stroke-width="1.2" fill="none"/>
+      <path d="M22 50 Q50 81 78 50"
+            stroke="#f3d5b5" stroke-width="1" fill="none" opacity="0.7"/>
+    </svg>
+  `;
+
+  global.PET_SVGS = {
+    cat: CAT, dog: DOG, maltese_white: MALTESE_WHITE, hamster: HAMSTER, dino: DINO,
+    harp_seal: HARP_SEAL,
+  };
   global.PET_NAMES = {
     cat: 'Ginger Cat',
     dog: 'Maltese (Brown)',
     maltese_white: 'White Maltese',
     hamster: 'Hamster',
-    dino: 'Dino'
+    dino: 'Dino',
+    harp_seal: 'Harp Seal',
   };
-  global.PET_LIST = ['cat', 'dog', 'maltese_white', 'hamster', 'dino'];
+  global.PET_LIST = ['cat', 'dog', 'maltese_white', 'hamster', 'dino', 'harp_seal'];
   global.DEFAULT_PET = 'cat';
   global.HOUSE_SVG = CUSHION;
-  global.HOUSE_SVGS = { cushion: CUSHION, tower: TOWER, basket: BASKET };
+  global.HOUSE_SVGS = {
+    cushion: CUSHION, tower: TOWER, basket: BASKET, hammock: HAMMOCK,
+  };
   // restY: 잘 때 펫 박스의 바닥이 집 박스 top 에서 몇 px 아래에 오는지 (스타일별 잠자리 높이)
   global.HOUSE_STYLES = {
     cushion: { name: 'Cushion', restY: 85 },
     tower: { name: 'Cat Tower', restY: 48 },
     basket: { name: 'Basket', restY: 80 },
+    hammock: { name: 'Hammock', restY: 62 },
   };
-  global.HOUSE_STYLE_LIST = ['cushion', 'tower', 'basket'];
+  global.HOUSE_STYLE_LIST = ['cushion', 'tower', 'basket', 'hammock'];
   global.DEFAULT_HOUSE = 'cushion';
 })(typeof window !== 'undefined' ? window : self);
