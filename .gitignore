@@ -1,8 +1,9 @@
 # node build.js 가 매번 새로 만드는 중간 산출물
 build/
 
-# package.sh 로 언제든 다시 만드는 배포 zip
+# 배포용 ZIP 파일은 모든 경로에서 제외
 *.zip
+*.ZIP
 
 # store 파일 다 삭제
 /store/*

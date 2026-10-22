@@ -234,7 +234,7 @@
 
   <table id="board"></table>
 
-  <h2 id="variantTitle">갈색 말티즈 얼굴 시안</h2>
+  <h2 id="variantTitle">brown dog 얼굴 시안</h2>
   <p class="sub">마음에 드는 번호를 알려주세요. 위 컨트롤의 state/zoom/bg 가 여기에도 그대로 적용됩니다.</p>
   <div id="variants"></div>
 
@@ -308,7 +308,7 @@
         });
       }
 
-      // ===== 갈색 말티즈 얼굴 시안 =====
+      // ===== brown dog 얼굴 시안 =====
       // 얼굴 코어를 7칸(홀수)으로 잡아 정중앙 칸(14)에 코를 놓을 수 있게 했다.
       const DOG_FACE_VARIANTS = [
         {
@@ -365,6 +365,7 @@
       let selectedState = 'idle';
       let birthdayEnabled = false;
       const celebrationTimers = new Map();
+      const celebrationStates = new Map();
       const birthdayToggle = document.getElementById('birthdayToggle');
       const birthdayPreviewStatus = document.getElementById('birthdayPreviewStatus');
 
@@ -374,7 +375,8 @@
         const scene = el.querySelector('.birthday-scene');
         if (scene) scene.remove();
         el.classList.remove('birthday-celebrating');
-        el.dataset.state = selectedState;
+        el.dataset.state = celebrationStates.get(el) || selectedState;
+        celebrationStates.delete(el);
         if (!celebrationTimers.size) birthdayPreviewStatus.textContent = '';
       }
 
@@ -395,6 +397,7 @@
 
       function playBirthday(el) {
         if (celebrationTimers.has(el)) return;
+        celebrationStates.set(el, el.dataset.state);
         el.dataset.state = 'birthday';
         el.classList.add('birthday-celebrating');
         const scene = document.createElement('div');
@@ -414,6 +417,11 @@
       document.querySelectorAll('.stage #screen-pet').forEach((el) => {
         el.addEventListener('click', () => {
           if (!birthdayEnabled) setBirthdayPreview(true);
+          if (el.dataset.state === 'sleeping') {
+            el.dataset.state = 'idle';
+            birthdayPreviewStatus.textContent = '잠에서 깼어요. 다시 누르면 초를 불어요.';
+            return;
+          }
           playBirthday(el);
         });
       });

@@ -176,12 +176,66 @@
   const languageStatus = document.getElementById('languageStatus');
   let savedLanguage = 'auto';
   let languageValueReceived = false;
+  const restorePetBtn = document.getElementById('restorePetBtn');
+  const restorePetStatus = document.getElementById('restorePetStatus');
+  let hiddenUntil = 0;
+  let hiddenLoaded = false;
+  let hiddenValueReceived = false;
+  let hiddenRevision = 0;
+  let restoring = false;
+  let restoreNotice = '';
+  let restoreTimer = 0;
+
+  function renderRestorePet() {
+    const ko = PetLanguage.resolve(savedLanguage) === 'ko';
+    const hidden = hiddenUntil > Date.now();
+    const copy = ko ? {
+      button: '펫 즉시 복구', loading: '숨김 상태 확인 중…', saving: '펫을 복구하는 중…',
+      hidden: '숨김 시간을 취소하고 펫을 다시 표시해요.', visible: '시간 지정 숨김이 꺼져 있어요.',
+      restored: '숨김을 해제했어요. 활성 탭에서 펫을 만나요!',
+      failed: '복구하지 못했어요. 다시 눌러 주세요.', loadError: '상태 확인에 실패했어요. 복구를 눌러 주세요.',
+    } : {
+      button: 'Restore pet now', loading: 'Loading visibility…', saving: 'Restoring your pet…',
+      hidden: 'Cancel timed hiding and bring your pet back.', visible: 'Timed hiding is off.',
+      restored: 'Hiding cleared. See your pet on the active tab!',
+      failed: 'Could not restore. Please try again.', loadError: 'Could not load status. Try restoring your pet.',
+    };
+    restorePetBtn.textContent = copy.button;
+    restorePetBtn.disabled = restoring || !hiddenLoaded || (!hidden && !['loadError', 'failed'].includes(restoreNotice));
+    restorePetStatus.textContent = !hiddenLoaded ? copy.loading
+      : restoring ? copy.saving : copy[restoreNotice] || (hidden ? copy.hidden : copy.visible);
+    clearTimeout(restoreTimer);
+    if (hidden) restoreTimer = setTimeout(() => {
+      if (hiddenUntil <= Date.now()) restoreNotice = '';
+      renderRestorePet();
+    }, Math.min(hiddenUntil - Date.now() + 10, 2147483647));
+  }
+
+  restorePetBtn.addEventListener('click', () => {
+    if (restorePetBtn.disabled || restoring) return;
+    restoring = true;
+    restoreNotice = '';
+    const revision = hiddenRevision;
+    renderRestorePet();
+    chrome.storage.local.set({ petHiddenUntil: 0 }, () => {
+      restoring = false;
+      if (chrome.runtime.lastError) {
+        restoreNotice = 'failed';
+      } else {
+        if (hiddenRevision === revision) hiddenUntil = 0;
+        hiddenValueReceived = true;
+        restoreNotice = hiddenUntil > Date.now() ? '' : 'restored';
+      }
+      renderRestorePet();
+    });
+  });
 
   function showLanguagePreference(value) {
     savedLanguage = PetLanguage.normalizePreference(value);
     languageSelect.value = savedLanguage;
     languageStatus.textContent = PetLanguage.resolve(savedLanguage) === 'ko'
       ? '펫이 한국어로 말해요.' : 'Your pet speaks English.';
+    renderRestorePet();
   }
 
   languageSelect.addEventListener('change', () => {
@@ -207,6 +261,19 @@
   });
 
   if (chrome.storage.onChanged) chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.petHiddenUntil) {
+      hiddenValueReceived = true;
+      hiddenLoaded = true;
+      hiddenRevision++;
+      hiddenUntil = Number.isFinite(changes.petHiddenUntil.newValue) ? changes.petHiddenUntil.newValue : 0;
+      restoreNotice = '';
+      renderRestorePet();
+    }
+    if (area === 'local' && changes.houseStyle) {
+      const style = changes.houseStyle.newValue;
+      currentHouse = window.HOUSE_STYLES[style] ? style : window.DEFAULT_HOUSE;
+      renderHouseCards();
+    }
     if (area === 'local' && changes.petLanguage) {
       languageValueReceived = true;
       showLanguagePreference(changes.petLanguage.newValue);
@@ -215,15 +282,25 @@
 
   // 저장된 값 불러와서 초기 렌더
   if (chrome && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet', 'petName', 'theme', 'houseStyle', 'petLanguage'], (result) => {
+    chrome.storage.local.get(['pet', 'petName', 'theme', 'houseStyle', 'petLanguage', 'petHiddenUntil'], (result) => {
       if (chrome.runtime.lastError || !result) {
+        if (!hiddenValueReceived) {
+          hiddenLoaded = true;
+          restoreNotice = 'loadError';
+          renderRestorePet();
+        }
         languageStatus.textContent = 'Could not load language. Reopen settings to retry.';
         renderThemeTabs();
         renderCards();
         renderHouseCards();
         return;
       }
+      if (!hiddenValueReceived) {
+        hiddenUntil = Number.isFinite(result.petHiddenUntil) ? result.petHiddenUntil : 0;
+        hiddenLoaded = true;
+      }
       if (!languageValueReceived) showLanguagePreference(result.petLanguage);
+      renderRestorePet();
       languageSelect.disabled = false;
       if (result.pet) currentPet = result.pet;
       if (result.petName) nameInput.value = result.petName;

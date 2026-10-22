@@ -385,32 +385,6 @@
   )}
     </svg>`;
 
-  // 도트 해먹. 처진 천의 바닥이 y=55~65px 라 restY(62)와 맞는다.
-  const HAMMOCK_PIXEL = `
-    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-      ${rectsFromRows(
-    {
-      x: 2, y: 5, rows: [
-        'pp............pp',
-        'p..............p',
-        'pw............wp',
-        'p.ww........ww.p',
-        'p..www....www..p',
-        'p....wwwwww....p',
-        'p....wwwwww....p',
-        'p....ssssss....p',
-        'p..............p',
-        'p..............p',
-        'p..............p',
-        'p..............p',
-        'ppp..........ppp',
-      ],
-    },
-    { p: '#c89f6e', w: '#fff5e6', s: '#f3e0c0' },
-    HOUSE_CELL,
-  )}
-    </svg>`;
-
   const PET_SVGS_PIXEL = {
     cat: CAT,
     dog: DOG,
@@ -426,7 +400,7 @@
   global.buildPixelPet = buildPet;
   global.HOUSE_SVG_PIXEL = CUSHION;
   global.HOUSE_SVGS_PIXEL = {
-    cushion: CUSHION, tower: TOWER_PIXEL, basket: BASKET_PIXEL, hammock: HAMMOCK_PIXEL,
+    cushion: CUSHION, tower: TOWER_PIXEL, basket: BASKET_PIXEL,
   };
 
   // house 키는 dev-preview 등 옛 소비자용 (= cushion). 새 코드는 houses 맵을 쓴다.

@@ -243,6 +243,104 @@ function menuAction(app, action) {
   return menu;
 }
 
+function restorePopup(app, stored, options = {}) {
+  const document = new Element('document');
+  document.createElement = (tag) => new Element(tag);
+  document.getElementById = (id) => document.querySelector(`#${id}`);
+  document.innerHTML = source('popup.html').split('<body>')[1].split('<script')[0];
+  const reads = [];
+  const writes = [];
+  const chrome = {
+    ...app.chrome,
+    storage: { onChanged: app.chrome.storage.onChanged, local: {
+      get(keys, callback) {
+        const snapshot = { ...stored };
+        if (options.deferRead) reads.push(() => callback(snapshot));
+        else callback(snapshot);
+      },
+      set(patch, callback) {
+        const write = () => app.chrome.storage.local.set(patch, callback);
+        if (options.deferWrite) writes.push(write);
+        else write();
+      },
+    } },
+    tabs: { query(query, callback) { callback([]); } },
+  };
+  const context = vm.createContext({
+    document, chrome, Date: app.context.Date, navigator: { language: 'ko-KR' },
+    setTimeout: app.context.setTimeout, clearTimeout: app.context.clearTimeout,
+  });
+  context.window = context;
+  for (const name of ['pets.js', 'pets-pixel.js', 'language.js', 'birthday.js', 'popup.js']) load(context, name);
+  app.advance(0);
+  return {
+    button: document.getElementById('restorePetBtn'),
+    status: document.getElementById('restorePetStatus'), reads, writes,
+  };
+}
+
+test('설정의 즉시 복구는 숨김을 전탭에서 해제하고 활성 탭에만 펫을 다시 표시한다', () => {
+  const start = new Date(2026, 9, 22, 12).getTime();
+  const stored = { petHiddenUntil: start + 600000 };
+  const storageChanges = eventSource();
+  const active = contentHarness(stored, start, { storageChanges });
+  const inactive = contentHarness(stored, start, { storageChanges, active: false });
+  const popup = restorePopup(active, stored, { deferWrite: true });
+  assert.equal(popup.button.textContent, '펫 즉시 복구');
+  assert.equal(popup.button.disabled, false);
+  popup.button.fire('click');
+  popup.button.fire('click');
+  assert.equal(popup.button.disabled, true);
+  assert.equal(popup.writes.length, 1, '저장 중 중복 클릭은 무시한다');
+  assert.equal(active.pet.classList.contains('hidden'), true);
+  popup.writes.shift()();
+  assert.equal(stored.petHiddenUntil, 0);
+  assert.equal(active.pet.classList.contains('hidden'), false);
+  assert.equal(inactive.pet.classList.contains('away'), true);
+  assert.equal(inactive.pendingFrames, 0);
+  inactive.chrome.runtime.onMessage.fire({ type: 'PET_PRESENCE', present: true });
+  assert.equal(inactive.pet.classList.contains('hidden'), false);
+  assert.equal(inactive.pet.classList.contains('away'), false);
+  assert.equal(popup.button.disabled, true);
+  assert.match(popup.status.textContent, /숨김을 해제/);
+  assert.equal(contentHarness(stored, start).pet.classList.contains('hidden'), false);
+  active.save({ petLanguage: 'en' });
+  assert.equal(popup.button.textContent, 'Restore pet now');
+  assert.match(popup.status.textContent, /Hiding cleared/);
+});
+
+test('즉시 복구 저장 실패는 기존 숨김을 유지하고 재시도로 복구할 수 있다', () => {
+  const start = new Date(2026, 9, 22, 12).getTime();
+  const stored = { petHiddenUntil: start + 1800000 };
+  const app = contentHarness(stored, start);
+  const popup = restorePopup(app, stored);
+  app.failNextWrite();
+  popup.button.fire('click');
+  assert.equal(stored.petHiddenUntil, start + 1800000);
+  assert.equal(app.pet.classList.contains('hidden'), true);
+  assert.equal(popup.button.disabled, false);
+  assert.match(popup.status.textContent, /복구하지 못/);
+  popup.button.fire('click');
+  assert.equal(stored.petHiddenUntil, 0);
+  assert.equal(app.pet.classList.contains('hidden'), false);
+  assert.equal(popup.button.disabled, true);
+});
+
+test('복구 설정은 늦은 초기 응답보다 최신 숨김 변경을 우선하고 만료되면 버튼을 비활성화한다', () => {
+  const start = new Date(2026, 9, 22, 12).getTime();
+  const stored = { petHiddenUntil: start + 600000 };
+  const app = contentHarness(stored, start);
+  const popup = restorePopup(app, stored, { deferRead: true });
+  app.save({ petHiddenUntil: 0 });
+  popup.reads.shift()();
+  assert.equal(popup.button.disabled, true);
+  app.save({ petHiddenUntil: start + 1000 });
+  assert.equal(popup.button.disabled, false);
+  app.advance(1010);
+  assert.equal(popup.button.disabled, true);
+  assert.match(popup.status.textContent, /숨김이 꺼져/);
+});
+
 function chooseHide(app, action = 'hide-10m') {
   app.pet.fire('contextmenu');
   menuAction(app, 'hide');
@@ -293,7 +391,9 @@ test('숨김은 탭 간 동기화와 새로고침 후 유지되고 이전 만료
 test('타이머 만료는 생일 소품을 복구하지 않고 활성 탭에서 수면 상태만 재개한다', () => {
   const app = contentHarness({ atHome: true, petBirthday: '2020-10-22' });
   app.click();
+  app.click();
   assert.ok(app.pet.querySelector('.birthday-scene'));
+  app.save({ atHome: true });
   chooseHide(app);
   assert.equal(app.pet.querySelector('.birthday-scene'), null);
   assert.equal(app.pet.dataset.state, 'sleeping');
@@ -429,6 +529,62 @@ test('모든 펫과 테마에서 모자를 쓰고 클릭하면 케이크가 3초
   }
 });
 
+test('해먹 저장값은 양쪽 테마와 탭에서 쿠션으로 표시되고 다른 침대 선택도 유지된다', () => {
+  for (const theme of ['normal', 'pixel']) {
+    const stored = { houseStyle: 'hammock', atHome: true, theme };
+    const storageChanges = eventSource();
+    const first = contentHarness(stored, undefined, { storageChanges });
+    const second = contentHarness(stored, undefined, { storageChanges });
+    for (const app of [first, second]) {
+      app.frame();
+      const house = app.document.querySelector('#pet-house');
+      assert.equal(house.dataset.house, 'cushion');
+      assert.equal(house.innerHTML, app.context.PET_THEMES[theme].houses.cushion);
+      assert.equal(app.pet.style['--y'], '685px');
+      assert.deepEqual(plain(app.context.HOUSE_STYLE_LIST), ['cushion', 'tower', 'basket']);
+      assert.equal(app.context.PET_THEMES[theme].houses.hammock, undefined);
+    }
+    first.save({ houseStyle: 'tower' });
+    assert.equal(second.document.querySelector('#pet-house').dataset.house, 'tower');
+    first.save({ houseStyle: 'hammock' });
+    assert.equal(second.document.querySelector('#pet-house').dataset.house, 'cushion');
+    first.save({ houseStyle: 'basket' });
+    const reloaded = contentHarness(stored);
+    assert.equal(reloaded.document.querySelector('#pet-house').dataset.house, 'basket');
+  }
+});
+
+test('설정에서 해먹을 제외한 침대 세 개만 표시하고 기존 해먹은 쿠션 선택으로 표시한다', () => {
+  const document = new Element('document');
+  document.createElement = (tag) => new Element(tag);
+  document.getElementById = (id) => document.querySelector(`#${id}`);
+  for (const id of ['donate', 'grid', 'houseGrid', 'themeTabs', 'petNameInput', 'saveNameBtn', 'petBirthdayInput', 'saveBirthdayBtn', 'birthdayStatus', 'petLanguageSelect', 'languageStatus', 'restorePetBtn', 'restorePetStatus']) {
+    document.appendChild(new Element()).id = id;
+  }
+  const chrome = {
+    runtime: { sendMessage(message, callback) { callback({ petBirthday: '2026-10-22' }); } },
+    storage: { onChanged: eventSource(), local: {
+      get(keys, callback) { callback({ houseStyle: 'hammock' }); },
+      set(patch, callback) { callback(); },
+    } },
+    tabs: { query(query, callback) { callback([]); } },
+  };
+  const context = vm.createContext({ document, chrome, setTimeout: () => 0, clearTimeout() {} });
+  context.window = context;
+  for (const name of ['pets.js', 'pets-pixel.js', 'language.js', 'birthday.js', 'popup.js']) load(context, name);
+  const houseGrid = document.getElementById('houseGrid');
+  assert.deepEqual(houseGrid.children.map((card) => card.dataset.house), ['cushion', 'tower', 'basket']);
+  assert.equal(houseGrid.querySelector('.selected').dataset.house, 'cushion');
+  chrome.storage.onChanged.fire({ houseStyle: { newValue: 'tower' } }, 'local');
+  assert.equal(houseGrid.querySelector('.selected').dataset.house, 'tower');
+  chrome.storage.onChanged.fire({ houseStyle: { newValue: 'hammock' } }, 'local');
+  assert.equal(houseGrid.querySelector('.selected').dataset.house, 'cushion');
+  document.getElementById('themeTabs').children[1].fire('click');
+  assert.equal(houseGrid.children.length, 3);
+  assert.equal(houseGrid.querySelector('.selected').dataset.house, 'cushion');
+  assert.equal(houseGrid.querySelector('svg')['shape-rendering'], 'crispEdges');
+});
+
 test('생일이 아니면 모자나 케이크가 없고 드래그도 축하를 시작하지 않는다', () => {
   const ordinary = contentHarness({ petBirthday: '2020-05-03' });
   ordinary.click();
@@ -441,13 +597,54 @@ test('생일이 아니면 모자나 케이크가 없고 드래그도 축하를 �
   assert.equal(birthday.pet.querySelector('.birthday-scene'), null);
 });
 
-test('자는 펫도 축하 후 다시 잠들고 테마 변경과 숨김은 축하를 정리한다', () => {
-  const app = contentHarness({ petBirthday: '2020-10-22', atHome: true });
-  app.click();
-  app.frame();
-  assert.equal(app.pet.dataset.state, 'birthday');
-  app.advance(3000);
+test('생일에 자는 펫은 첫 클릭에 깨고 다음 클릭에 3초간 초를 분다', () => {
+  for (const theme of ['normal', 'pixel']) {
+    const stored = { petBirthday: '2020-10-22', atHome: true, theme };
+    const storageChanges = eventSource();
+    const app = contentHarness(stored, undefined, { storageChanges });
+    const other = contentHarness(stored, undefined, { storageChanges });
+    app.click();
+    app.frame();
+    other.frame();
+    assert.equal(stored.atHome, false);
+    assert.equal(app.pet.dataset.state, 'idle');
+    assert.equal(other.pet.dataset.state, 'idle');
+    assert.equal(app.pet.querySelector('.birthday-scene'), null);
+    assert.equal(other.pet.querySelector('.birthday-scene'), null);
+    app.click();
+    assert.equal(app.pet.dataset.state, 'birthday');
+    assert.ok(app.pet.querySelector('.birthday-scene'));
+    app.advance(2999);
+    assert.ok(app.pet.querySelector('.birthday-scene'));
+    app.advance(1);
+    assert.equal(app.pet.dataset.state, 'idle');
+    assert.equal(app.pet.querySelector('.birthday-scene'), null);
+  }
+});
+
+test('침대 밖에서 잠든 생일 펫도 첫 클릭에는 깨기만 하고 드래그에는 축하하지 않는다', () => {
+  const app = contentHarness({ petBirthday: '2020-10-22' });
+  vm.runInContext('Math.random = () => 0.85', app.context);
+  for (let i = 0; i < 100; i++) app.frame();
   assert.equal(app.pet.dataset.state, 'sleeping');
+  app.click();
+  assert.equal(app.pet.dataset.state, 'idle');
+  assert.equal(app.pet.querySelector('.birthday-scene'), null);
+  app.click();
+  assert.ok(app.pet.querySelector('.birthday-scene'));
+  app.advance(3000);
+  for (let i = 0; i < 100; i++) app.frame();
+  assert.equal(app.pet.dataset.state, 'sleeping');
+  app.pet.fire('mousedown');
+  app.document.fire('mousemove', { clientX: 950, movementX: 50 });
+  app.document.fire('mouseup', { clientX: 950 });
+  app.frame();
+  assert.equal(app.pet.querySelector('.birthday-scene'), null);
+  assert.notEqual(app.pet.dataset.state, 'sleeping');
+});
+
+test('테마 변경과 숨김은 진행 중인 생일 축하를 정리한다', () => {
+  const app = contentHarness({ petBirthday: '2020-10-22' });
   app.click();
   app.save({ theme: 'pixel' });
   assert.equal(app.pet.querySelector('.birthday-scene'), null);
@@ -516,9 +713,12 @@ test('dev-preview에서 모자 토글과 전체·개별 3초 재생 및 상태 �
   const sleeping = document.getElementById('stateGroup').children.find((button) => button.textContent === 'sleeping');
   sleeping.fire('click');
   pets[0].fire('click');
+  assert.equal(pets[0].dataset.state, 'idle');
+  assert.equal(document.querySelectorAll('.birthday-scene').length, 0);
+  pets[0].fire('click');
   assert.equal(document.querySelectorAll('.birthday-scene').length, 1);
   [...timers.values()].forEach((fn) => fn());
-  assert.equal(pets[0].dataset.state, 'sleeping');
+  assert.equal(pets[0].dataset.state, 'idle');
   document.getElementById('birthdayToggle').fire('click');
   assert.equal(document.querySelectorAll('.birthday-hat').length, 0);
   document.getElementById('fortunePreviewOpen').fire('click');
@@ -721,7 +921,7 @@ test('설정은 생일을 불러오고 유효한 저장값만 반영하며 미�
   const document = new Element('document');
   document.createElement = (tag) => new Element(tag);
   document.getElementById = (id) => document.querySelector(`#${id}`);
-  for (const id of ['donate', 'grid', 'houseGrid', 'themeTabs', 'petNameInput', 'saveNameBtn', 'petBirthdayInput', 'saveBirthdayBtn', 'birthdayStatus', 'petLanguageSelect', 'languageStatus']) {
+  for (const id of ['donate', 'grid', 'houseGrid', 'themeTabs', 'petNameInput', 'saveNameBtn', 'petBirthdayInput', 'saveBirthdayBtn', 'birthdayStatus', 'petLanguageSelect', 'languageStatus', 'restorePetBtn', 'restorePetStatus']) {
     const element = document.appendChild(new Element());
     element.id = id;
   }
@@ -742,7 +942,7 @@ test('설정은 생일을 불러오고 유효한 저장값만 반영하며 미�
       sendMessage(id, message) { messages.push(message); return Promise.resolve(); },
     },
   };
-  const context = vm.createContext({ document, chrome });
+  const context = vm.createContext({ document, chrome, setTimeout: () => 0, clearTimeout() {} });
   context.window = context;
   for (const name of ['pets.js', 'pets-pixel.js', 'language.js', 'birthday.js', 'popup.js']) load(context, name);
   assert.equal(input.value, '2026-10-22');
@@ -802,7 +1002,7 @@ test('언어 설정은 선택값을 저장·전송하고 실패하면 기존 선
   const document = new Element('document');
   document.createElement = (tag) => new Element(tag);
   document.getElementById = (id) => document.querySelector(`#${id}`);
-  for (const id of ['donate', 'grid', 'houseGrid', 'themeTabs', 'petNameInput', 'saveNameBtn', 'petBirthdayInput', 'saveBirthdayBtn', 'birthdayStatus', 'petLanguageSelect', 'languageStatus']) {
+  for (const id of ['donate', 'grid', 'houseGrid', 'themeTabs', 'petNameInput', 'saveNameBtn', 'petBirthdayInput', 'saveBirthdayBtn', 'birthdayStatus', 'petLanguageSelect', 'languageStatus', 'restorePetBtn', 'restorePetStatus']) {
     const element = document.appendChild(new Element());
     element.id = id;
   }
@@ -828,7 +1028,7 @@ test('언어 설정은 선택값을 저장·전송하고 실패하면 기존 선
       sendMessage(id, message) { messages.push(message); return Promise.resolve(); },
     },
   };
-  const context = vm.createContext({ document, chrome, navigator: { language: 'ko-KR' } });
+  const context = vm.createContext({ document, chrome, navigator: { language: 'ko-KR' }, setTimeout: () => 0, clearTimeout() {} });
   context.window = context;
   for (const name of ['pets.js', 'pets-pixel.js', 'language.js', 'birthday.js', 'popup.js']) load(context, name);
   const select = document.getElementById('petLanguageSelect');

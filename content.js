@@ -19,6 +19,7 @@
   let birthdayClockTimer = 0;
   let birthdayCake = null;
   let birthdayPressAtHome = false;
+  let petPressWasSleeping = false;
   let petDragMoved = false;
   let petDragStartX = 0;
   let petDragStartY = 0;
@@ -263,6 +264,7 @@
   }
 
   function setHouseStyle(style) {
+    if (style === 'hammock') style = 'cushion';
     if (!window.HOUSE_STYLES || !window.HOUSE_STYLES[style] || style === currentHouse) return;
     currentHouse = style;
     renderHouse();
@@ -648,6 +650,7 @@
     closeFortune();
     stopBirthdayCelebration();
     birthdayPressAtHome = false;
+    petPressWasSleeping = false;
     document.querySelectorAll('.zzz-particle, .heart-particle').forEach((el) => el.remove());
     removeToy();
     removeTeaser();
@@ -716,6 +719,7 @@
     refreshBirthday();
     if (birthdayTimer) { e.preventDefault(); return; }
     if (isAtHome && !birthdayToday) return;
+    petPressWasSleeping = state === 'sleeping';
     petDragMoved = false;
     petDragStartX = e.clientX;
     petDragStartY = e.clientY;
@@ -793,7 +797,7 @@
   document.addEventListener('mouseup', (e) => {
     if (birthdayPressAtHome) {
       birthdayPressAtHome = false;
-      if (Date.now() - mouseDownTime < 500 && Math.hypot(e.clientX - petDragStartX, e.clientY - petDragStartY) <= 4) startBirthdayCelebration();
+      if (Date.now() - mouseDownTime < 500 && Math.hypot(e.clientX - petDragStartX, e.clientY - petDragStartY) <= 4) handlePetClick(e.clientX, e.clientY);
       return;
     }
     if (isDragging) {
@@ -814,6 +818,20 @@
   function handlePetClick(cx, cy) {
     refreshBirthday();
     if (birthdayToday) {
+      if (petPressWasSleeping) {
+        petPressWasSleeping = false;
+        if (isAtHome) applyAtHome(false);
+        else {
+          state = 'idle';
+          stateTimer = 60;
+          vx = 0;
+          vy = 0;
+          showThought(getGreeting());
+        }
+        pet.dataset.state = state;
+        document.querySelectorAll('.zzz-particle').forEach((el) => el.remove());
+        return;
+      }
       startBirthdayCelebration();
       return;
     }

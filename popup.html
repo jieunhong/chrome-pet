@@ -9,10 +9,18 @@
       box-sizing: border-box;
     }
 
+    html {
+      width: 560px;
+      max-width: 100%;
+    }
+
     body {
-      width: 260px;
+      width: 100%;
+      min-height: 560px;
       margin: 0;
       padding: 16px;
+      display: flex;
+      flex-direction: column;
       font-family: -apple-system, "Pretendard", "Noto Sans KR", system-ui, sans-serif;
       background: linear-gradient(135deg, #fff5e8, #ffe4d0);
     }
@@ -60,16 +68,34 @@
 
     .pet-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
     }
 
+    .settings-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .settings-layout > div {
+      min-width: 0;
+    }
+
+    .details-column .name-section {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+
     .pet-card {
+      min-width: 0;
       position: relative;
       background: #fff;
       border: 2px solid transparent;
       border-radius: 12px;
-      padding: 10px 4px 8px;
+      padding: 8px 4px 6px;
       cursor: pointer;
       transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, background 0.15s;
       display: flex;
@@ -92,17 +118,20 @@
     }
 
     .pet-card svg {
-      width: 60px;
-      height: 60px;
+      width: 44px;
+      height: 44px;
       display: block;
       filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.12));
     }
 
     .pet-card .name {
+      max-width: 100%;
+      overflow-wrap: anywhere;
       font-size: 12px;
       color: #5a3a28;
       font-weight: 600;
       margin-top: 2px;
+      line-height: 1.3;
     }
 
     .pet-card .check {
@@ -152,18 +181,25 @@
     }
 
     .house-section .pet-card svg {
-      width: 52px;
-      height: 52px;
+      width: 36px;
+      height: 36px;
+    }
+
+    .house-section {
+      margin-top: 8px;
+      padding-top: 8px;
     }
 
     .name-input-group {
-      display: flex;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 6px;
     }
 
     #petLanguageSelect,
     #petBirthdayInput,
     #petNameInput {
+      width: 100%;
       min-width: 0;
       flex: 1;
       padding: 8px 12px;
@@ -230,47 +266,106 @@
       text-align: center;
       line-height: 1.5;
     }
+
+    .details-column .hint {
+      margin: 0;
+      text-align: left;
+    }
+
+    .footer-hint {
+      margin-top: auto;
+      padding-top: 10px;
+    }
+
+    .restore-section {
+      margin-top: 8px;
+    }
+
+    #restorePetBtn {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #d59069;
+      border-radius: 8px;
+      background: #fff8f2;
+      color: #75442c;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #restorePetBtn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .restore-section .hint {
+      margin-top: 6px;
+      text-align: left;
+    }
+
+    @media (max-width: 519px) {
+      .settings-layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .details-column {
+        border-top: 1px dashed #d4b088;
+        padding-top: 16px;
+      }
+    }
   </style>
 </head>
 
 <body>
   <h1>🐾 Pick a Pet</h1>
   <div class="theme-tabs" id="themeTabs"></div>
-  <div class="pet-grid" id="grid"></div>
+  <div class="settings-layout">
+    <div class="pets-column">
+      <div class="pet-grid" id="grid"></div>
 
-  <div class="house-section">
-    <label>Pet Bed</label>
-    <div class="pet-grid" id="houseGrid"></div>
-  </div>
+      <div class="house-section">
+        <label>Pet Bed</label>
+        <div class="pet-grid" id="houseGrid"></div>
+      </div>
+      <div class="restore-section">
+        <button type="button" id="restorePetBtn" aria-describedby="restorePetStatus" disabled>Restore pet now</button>
+        <p class="hint" id="restorePetStatus" role="status" aria-live="polite">Loading visibility…</p>
+      </div>
+    </div>
 
-  <div class="name-section">
-    <label for="petNameInput">Pet Name</label>
-    <div class="name-input-group">
-      <input type="text" id="petNameInput" placeholder="Name your pet" maxlength="10">
-      <button id="saveNameBtn">Save</button>
+    <div class="details-column">
+      <div class="name-section">
+        <label for="petNameInput">Pet Name</label>
+        <div class="name-input-group">
+          <input type="text" id="petNameInput" placeholder="Name your pet" maxlength="10">
+          <button id="saveNameBtn">Save</button>
+        </div>
+      </div>
+
+      <div class="birthday-section">
+        <label for="petBirthdayInput">Pet Birthday</label>
+        <div class="name-input-group">
+          <input type="date" id="petBirthdayInput" min="0001-01-01" max="9999-12-31" required aria-describedby="birthdayStatus" disabled>
+          <button id="saveBirthdayBtn" disabled>Save</button>
+        </div>
+        <p class="hint" id="birthdayStatus" role="status" aria-live="polite">Loading birthday…</p>
+      </div>
+
+      <div class="language-section">
+        <label for="petLanguageSelect">Pet Language / 펫 대사 언어</label>
+        <select id="petLanguageSelect" aria-describedby="languageStatus" disabled>
+          <option value="auto">Browser language (default)</option>
+          <option value="en">English</option>
+          <option value="ko">한국어</option>
+        </select>
+        <p class="hint" id="languageStatus" role="status" aria-live="polite">Loading language…</p>
+      </div>
     </div>
   </div>
 
-  <div class="birthday-section">
-    <label for="petBirthdayInput">Pet Birthday</label>
-    <div class="name-input-group">
-      <input type="date" id="petBirthdayInput" min="0001-01-01" max="9999-12-31" required aria-describedby="birthdayStatus" disabled>
-      <button id="saveBirthdayBtn" disabled>Save</button>
-    </div>
-    <p class="hint" id="birthdayStatus" role="status" aria-live="polite">Loading birthday…</p>
-  </div>
-
-  <div class="language-section">
-    <label for="petLanguageSelect">Pet Language / 펫 대사 언어</label>
-    <select id="petLanguageSelect" aria-describedby="languageStatus" disabled>
-      <option value="auto">Browser language (default)</option>
-      <option value="en">English</option>
-      <option value="ko">한국어</option>
-    </select>
-    <p class="hint" id="languageStatus" role="status" aria-live="polite">Loading language…</p>
-  </div>
-
-  <p class="hint">Changes apply to all tabs instantly</p>
+  <p class="hint footer-hint">Changes apply to all tabs instantly</p>
 
   <a class="donate" id="donate" target="_blank" rel="noopener">☕ Buy me a coffee</a>
 

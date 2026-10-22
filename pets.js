@@ -259,33 +259,14 @@
     </svg>
   `;
 
-  // 해먹: 천이 축 처진 가운데(y≈57~63)에 폭 안겨서 잔다. restY 는 HOUSE_STYLES 에서 맞춘다.
-  const HAMMOCK = `
-    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="50" cy="93" rx="45" ry="5.5" fill="rgba(0,0,0,0.1)"/>
-      <rect x="6" y="88" width="18" height="5" rx="2.5" fill="#b8905e"/>
-      <rect x="76" y="88" width="18" height="5" rx="2.5" fill="#b8905e"/>
-      <rect x="12" y="34" width="6" height="56" rx="3" fill="#c89f6e"/>
-      <rect x="13" y="34" width="2.5" height="56" rx="1.25" fill="#d9b98c"/>
-      <rect x="82" y="34" width="6" height="56" rx="3" fill="#c89f6e"/>
-      <rect x="83" y="34" width="2.5" height="56" rx="1.25" fill="#d9b98c"/>
-      <path d="M16 40 Q50 74 84 40 L84 52 Q50 86 16 52 Z"
-            fill="#fff5e6" stroke="#f3e0c0" stroke-width="1"/>
-      <path d="M18 45 Q50 78 82 45"
-            stroke="#f3d5b5" stroke-width="1.2" fill="none"/>
-      <path d="M22 50 Q50 81 78 50"
-            stroke="#f3d5b5" stroke-width="1" fill="none" opacity="0.7"/>
-    </svg>
-  `;
-
   global.PET_SVGS = {
     cat: CAT, dog: DOG, maltese_white: MALTESE_WHITE, hamster: HAMSTER, dino: DINO,
     harp_seal: HARP_SEAL,
   };
   global.PET_NAMES = {
     cat: 'Ginger Cat',
-    dog: 'Maltese (Brown)',
-    maltese_white: 'White Maltese',
+    dog: 'brown dog',
+    maltese_white: 'white dog',
     hamster: 'Hamster',
     dino: 'Dino',
     harp_seal: 'Harp Seal',
@@ -294,15 +275,14 @@
   global.DEFAULT_PET = 'cat';
   global.HOUSE_SVG = CUSHION;
   global.HOUSE_SVGS = {
-    cushion: CUSHION, tower: TOWER, basket: BASKET, hammock: HAMMOCK,
+    cushion: CUSHION, tower: TOWER, basket: BASKET,
   };
   // restY: 잘 때 펫 박스의 바닥이 집 박스 top 에서 몇 px 아래에 오는지 (스타일별 잠자리 높이)
   global.HOUSE_STYLES = {
     cushion: { name: 'Cushion', restY: 85 },
     tower: { name: 'Cat Tower', restY: 48 },
     basket: { name: 'Basket', restY: 80 },
-    hammock: { name: 'Hammock', restY: 62 },
   };
-  global.HOUSE_STYLE_LIST = ['cushion', 'tower', 'basket', 'hammock'];
+  global.HOUSE_STYLE_LIST = ['cushion', 'tower', 'basket'];
   global.DEFAULT_HOUSE = 'cushion';
 })(typeof window !== 'undefined' ? window : self);

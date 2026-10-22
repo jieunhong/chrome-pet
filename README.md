@@ -1,7 +1,7 @@
 # Screen Pet 🐾 - Browser Extension v1.2
 
 A cute animal companion that hops around your browser!
-Choose from **Ginger Cat 🐱 / Maltese 🐶 / Hamster 🐹 / Dino 🦕**.
+Choose from **Ginger Cat 🐱 / brown dog 🐶 / white dog 🐶 / Hamster 🐹 / Dino 🦕 / Harp Seal 🦭**.
 
 ## Features
 
@@ -33,7 +33,9 @@ Click the **Screen Pet icon** in your extension toolbar.
 - Click a pet card to switch instantly.
 - Type a name and click **"Save"** to update your pet's name label.
 - Set **Pet Birthday** and click **"Save"** to change its birthday. The default is the local installation date; changing it does not change the recorded installation date. Older installations without a recorded date use the day they first run this version.
-- Birthdays repeat on the same local month and day each year (February 29 celebrates on leap years). Hats update at midnight and when returning to a tab. A sleeping pet can celebrate and then return to sleep.
+- Birthdays repeat on the same local month and day each year (February 29 celebrates on leap years). Hats update at midnight and when returning to a tab. Click a sleeping birthday pet to wake it, then click again while awake for the cake and candle-blowing celebration.
+- Choose a **Cushion**, **Cat Tower**, or **Basket** for your pet's bed. Previously selected hammocks now display as cushions.
+- Use **Restore pet now / 펫 즉시 복구** in settings to cancel timed hiding early. Your pet returns on the active tab, and the cleared hide timer is shared across tabs.
 - Choose **Pet Language** to change dialogue and tarot text. Changing the language preserves today's selected card and score.
 
 ## Daily Fortune
@@ -63,7 +65,8 @@ All readings are generated locally for fun, with no server or external API. They
 ## Pet Personalities
 
 - **🐱 Ginger Cat**: Classic orange kitty with big round "Puss in Boots" eyes.
-- **🐶 Maltese**: Cute white puppy with floppy brown ears and a tiny pink tongue.
+- **🐶 brown dog**: A tan puppy with floppy brown ears and a tiny pink tongue.
+- **🐶 white dog**: A fluffy white puppy with round black eyes.
 - **🐹 Hamster**: Fluffy little cheeks and a twitchy tail.
 - **🦕 Dino**: A friendly long-necked dinosaur with cute spots.
 
