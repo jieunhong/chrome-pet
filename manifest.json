@@ -19,8 +19,8 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["pets.js", "pets-pixel.js", "birthday.js", "content.js"],
-      "css": ["styles.css"],
+      "js": ["pets.js", "pets-pixel.js", "birthday.js", "language.js", "fortune.js", "fortune-ui.js", "content.js"],
+      "css": ["styles.css", "fortune.css"],
       "run_at": "document_idle"
     }
   ],

@@ -10,6 +10,9 @@
   let currentPet = window.DEFAULT_PET || 'cat';
   let currentTheme = window.DEFAULT_THEME || 'normal';
   let currentName = '';
+  let languagePreference = 'auto';
+  let currentLanguage = PetLanguage.resolve(languagePreference);
+  let languageValueReceived = false;
   let currentBirthday = '';
   let birthdayToday = false;
   let birthdayTimer = 0;
@@ -35,7 +38,19 @@
   let lastMouseMoveTime = 0;
   let isAtHome = false;
   let isDevToolsOpen = false;
-  let removedFromPage = false;
+  let petHiddenUntil = 0;
+  let hiddenByTimer = false;
+  let hideTimer = 0;
+  let hiddenValueReceived = false;
+  let visibilityReady = !(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local);
+  let rafId = 0;
+  let fortuneUI = null;
+  let fortuneDate = PetFortune.day();
+  let fortuneGeneration = 0;
+  let fortuneBusy = false;
+  let fortuneToken = null;
+  let fortuneAutoDoneDate = '';
+  let fortuneRetryAfter = 0;
 
   // 크롬 창을 여러 개 띄워도 펫은 "지금 보고 있는 탭" 한 곳에만 있는다
   let presentOnTab = true;
@@ -76,6 +91,7 @@
   // ============ 펫 DOM 생성 ============
   const pet = document.createElement('div');
   pet.id = 'screen-pet';
+  pet.classList.toggle('hidden', !visibilityReady);
   let thought = null;
 
   function themeAssets() {
@@ -135,6 +151,7 @@
     const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     // Midnight precision plus periodic checks for system clock/time-zone changes.
     birthdayClockTimer = setTimeout(refreshBirthday, Math.min(30000, midnight - now + 20));
+    checkFortune();
   }
 
   function setBirthday(value) {
@@ -159,7 +176,7 @@
 
   function startBirthdayCelebration() {
     refreshBirthday();
-    if (!birthdayToday || birthdayTimer || removedFromPage || !presentOnTab || isDevToolsOpen || document.hidden) return;
+    if (!birthdayToday || birthdayTimer || !visibilityReady || hiddenByTimer || !presentOnTab || isDevToolsOpen || document.hidden) return;
     removeToy();
     removeTeaser();
     removeFood();
@@ -192,6 +209,7 @@
   // 펫 방석 DOM
   const house = document.createElement('div');
   house.id = 'pet-house';
+  house.classList.toggle('hidden', !visibilityReady);
   house.title = '방석 (클릭: 펫 재우기 / 드래그: 위치 옮기기)';
   document.body.appendChild(house);
 
@@ -217,6 +235,20 @@
     }
   }
 
+  function setLanguagePreference(value) {
+    languagePreference = PetLanguage.normalizePreference(value);
+    const nextLanguage = PetLanguage.resolve(languagePreference);
+    if (nextLanguage === currentLanguage) return;
+    currentLanguage = nextLanguage;
+    if (fortuneUI) fortuneUI.refresh();
+    if (thought) {
+      thought.classList.remove('show');
+      thought.textContent = '';
+    }
+  }
+
+  window.addEventListener('languagechange', () => setLanguagePreference(languagePreference));
+
   function setName(name) {
     currentName = name;
     renderPet();
@@ -227,6 +259,7 @@
     currentTheme = theme;
     renderPet();
     renderHouse();
+    if (fortuneUI) fortuneUI.refresh();
   }
 
   function setHouseStyle(style) {
@@ -255,6 +288,7 @@
 
   function setAtHome(value) {
     if (isAtHome === !!value) return; // storage 에코로 두 번 불려도 상태를 다시 밟지 않는다
+    closeFortune();
     stopBirthdayCelebration();
     isAtHome = !!value;
     if (isAtHome) {
@@ -293,7 +327,13 @@
 
   // storage 에서 펫 타입 및 이름 읽어오기 및 리스너 등록
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet', 'petName', 'atHome', 'cushionX', 'theme', 'houseStyle', 'petWeight', 'petBirthday'], (result) => {
+    chrome.storage.local.get(['pet', 'petName', 'atHome', 'cushionX', 'theme', 'houseStyle', 'petWeight', 'petBirthday', 'petHiddenUntil', 'petLanguage'], (result) => {
+      if (chrome.runtime.lastError || !result) {
+        visibilityReady = true;
+        syncHiddenState();
+        return;
+      }
+      if (!languageValueReceived) setLanguagePreference(result.petLanguage);
       if (result.petBirthday) setBirthday(result.petBirthday);
       if (typeof result.cushionX === 'number') {
         cushionX = result.cushionX;
@@ -319,11 +359,31 @@
       if (result.atHome) {
         setAtHome(true);
       }
+      // An onChanged event can arrive before this initial snapshot returns.
+      if (!hiddenValueReceived) petHiddenUntil = validHiddenUntil(result.petHiddenUntil);
+      visibilityReady = true;
+      syncHiddenState();
     });
 
     // 팝업에서 storage 변경 시 실시간 반영
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local') {
+        if (changes.fortuneDaily) {
+          const daily = changes.fortuneDaily.newValue;
+          if (daily && daily.date === PetFortune.day()) {
+            if (daily.autoShown || daily.result) fortuneAutoDoneDate = daily.date;
+            if (fortuneUI && fortuneUI.isOpen() && fortuneDate === daily.date && PetFortune.validResult(daily.result, daily.date)) fortuneUI.showResult(daily.result);
+          }
+        }
+        if (changes.petLanguage) {
+          languageValueReceived = true;
+          setLanguagePreference(changes.petLanguage.newValue);
+        }
+        if (changes.petHiddenUntil) {
+          hiddenValueReceived = true;
+          petHiddenUntil = validHiddenUntil(changes.petHiddenUntil.newValue);
+          syncHiddenState();
+        }
         if (changes.petBirthday) setBirthday(changes.petBirthday.newValue);
         if (changes.cushionX) {
           cushionX = changes.cushionX.newValue;
@@ -348,6 +408,9 @@
       if (!message) return;
       if (message.type === 'CHANGE_PET' && message.petType) {
         setPet(message.petType);
+      } else if (message.type === 'CHANGE_LANGUAGE') {
+        languageValueReceived = true;
+        setLanguagePreference(message.language);
       } else if (message.type === 'CHANGE_NAME') {
         setName(message.name);
       } else if (message.type === 'CHANGE_THEME' && message.theme) {
@@ -377,45 +440,6 @@
     }
   }
 
-  const PET_THOUGHTS = {
-    cat: {
-      idle: ['😺', '💤', '✨', '🐟', '♡', '😼', '🧶', '💭', '🌙', '😻', '🐾', 'meow~', 'zzZ', 'purr~', 'hmph', '…', 'yawn~', 'comfy ♡', '~nya'],
-      click: ['😾', '🙀', '💕', '😽', '🫣', '!!', 'hehe', 'hey!', 'pat me~', 'more!', 'stop!', 'purrr'],
-      chase: ['🏃', '🐭', '😼!', 'gotcha!', 'mine!'],
-      dance: ['🎵', '🎶', '💃', '♪', 'dance~', 'wooo!'],
-    },
-    dog: {
-      idle: ['🐶', '💤', '✨', '🦴', '♡', '🐾', '💭', '🌸', '😊', '🎾', '🥰', 'woof~', 'zzZ', 'arf!', 'hehe', '…', 'yawn~', 'happy ♡', 'sniff~'],
-      click: ['🐕', '💕', '🥺', '😍', '🫶', '!!', 'hehe', 'yay!', 'again!', 'more!', 'woof!', 'love it!'],
-      chase: ['🏃', '🎾', '🐶!', 'fetch!', 'wait!'],
-      dance: ['🎵', '🎶', '🐕‍🦺', '♪', 'dance~', 'wooo!'],
-    },
-    maltese_white: {
-      idle: ['☁️', '💤', '✨', '🎀', '♡', '🐾', '💭', '🌸', '😊', '🧸', '🥰', 'woof!', 'zzZ', 'ruff!', 'hehe', '…', 'yawn~', 'fluffy ♡', 'sniff~'],
-      click: ['🐶', '💕', '🥺', '😍', '🫶', '!!', 'hehe', 'yay!', 'again!', 'more!', 'woof!', 'love it!'],
-      chase: ['🏃', '🎾', '🐶!', 'fetch!', 'wait!'],
-      dance: ['🎵', '🎶', '🐩', '♪', 'dance~', 'wooo!'],
-    },
-    hamster: {
-      idle: ['🐹', '💤', '✨', '🌻', '♡', '🥜', '💭', '🧀', '😊', '🎡', '🥰', 'squeak~', 'zzZ', 'nom nom', 'hehe', '…', 'yawn~', 'cozy ♡', 'munch~'],
-      click: ['🐹!', '💕', '🥺', '😳', '🫣', '!!', 'hehe', 'eek!', 'cheeks!', 'more!', 'squeak!', 'fluffy!'],
-      chase: ['🏃', '🌻', '🐹!', 'seeds!', 'mine!'],
-      dance: ['🎵', '🎶', '🐹', '♪', 'dance~', 'wooo!'],
-    },
-    dino: {
-      idle: ['🦕', '💤', '✨', '🌿', '♡', '🌋', '💭', '🍃', '😊', '🥚', '🥰', 'rawr~', 'zzZ', 'stomp', 'hehe', '…', 'yawn~', 'cozy ♡', 'munch~'],
-      click: ['🦕!', '💕', '🥺', '😳', '🫣', '!!', 'hehe', 'roar!', 'rawr!', 'more!', 'stomp!', 'dino!'],
-      chase: ['🏃', '🌿', '🦕!', 'chomp!', 'mine!'],
-      dance: ['🎵', '🎶', '🦕', '♪', 'dance~', 'wooo!'],
-    },
-    harp_seal: {
-      idle: ['🦭', '💤', '✨', '🐟', '♡', '❄️', '💭', '🌊', '😊', '🥰', 'flop~', 'zzZ', 'boop', 'hehe', '…', 'yawn~', 'chilly ♡', 'roll roll'],
-      click: ['🦭!', '💕', '🥺', '😳', '🫶', '!!', 'hehe', 'ork ork!', 'boop me!', 'more!', 'flap flap!', 'squish!'],
-      chase: ['🏃', '🏐', '🦭!', 'bounce!', 'mine!'],
-      dance: ['🎵', '🎶', '🦭', '♪', 'dance~', 'wooo!'],
-    },
-  };
-
   // 사용자 로컬 시간 기준. 탭을 오래 켜둬도 시간이 넘어가면 반영되도록 부를 때마다 계산한다.
   function currentTimeSlot() {
     const hour = new Date().getHours();
@@ -427,36 +451,17 @@
     return 'night';
   }
 
-  const TIME_THOUGHTS = {
-    lateNight: ['🌙', '😴', '🥱', '🛌', 'still up?', 'go sleep~', 'zzZ...', 'so late…', 'sleepy…'],
-    morning: ['☀️', '🌅', '🥐', '🌤️', 'morning~', 'good morning!', 'stretch~', 'rise n shine', 'breakfast?'],
-    noon: ['🍚', '😋', '🍜', '🥪', '🍙', 'lunch time!', 'hungry…', 'nom nom', 'feed me~'],
-    afternoon: ['☕', '🥱', '🍪', '🌤️', 'sleepy…', 'break time~', 'snack?', 'so slow…', 'yawn~'],
-    evening: ['🌆', '🍽️', '🌇', '🛋️', '✨', 'good evening~', 'dinner?', 'cozy~', 'nice day?'],
-    night: ['🌙', '⭐', '💤', '🌠', 'bedtime~', 'sleepy…', 'good night', 'nighty~', 'zzZ'],
-  };
-
-  const TIME_GREETINGS = {
-    lateNight: 'still up? 🌙',
-    morning: 'good morning! ☀️',
-    noon: 'lunch time? 🍚',
-    afternoon: 'hey~ ☕',
-    evening: 'good evening! 🌆',
-    night: 'sleepy~ 🌙',
-  };
-
-  const getGreeting = () => TIME_GREETINGS[currentTimeSlot()];
+  const getGreeting = () => PetLanguage.greeting(currentTimeSlot(), currentLanguage);
 
   function getThoughts(category) {
-    const petThoughts = PET_THOUGHTS[currentPet] || PET_THOUGHTS.cat;
-    const list = petThoughts[category] || petThoughts.idle;
+    const list = PetLanguage.thoughts(currentPet, category, currentLanguage);
     // 멍하니 있을 때만 시간대 대사를 섞는다. 클릭/추격/댄스 반응은 시간과 무관하다.
-    const pool = category === 'idle' ? list.concat(TIME_THOUGHTS[currentTimeSlot()]) : list;
+    const pool = category === 'idle' ? list.concat(PetLanguage.timeThoughts(currentTimeSlot(), currentLanguage)) : list;
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
   function showThought(text) {
-    if (birthdayTimer) return;
+    if (birthdayTimer || !visibilityReady || hiddenByTimer) return;
     if (!thought) return;
     thought.textContent = text || getThoughts('idle');
     thought.classList.add('show');
@@ -531,6 +536,7 @@
   }
 
   function startPlay(fromX, fromY) {
+    closeFortune();
     stopBirthdayCelebration();
     removeToy();
     removeTeaser();
@@ -615,6 +621,7 @@
 
   // ============ 먹이 주기 ============
   function startFeed() {
+    closeFortune();
     stopBirthdayCelebration();
     removeToy();
     removeTeaser();
@@ -638,6 +645,7 @@
 
   // ============ 탭 간 단일 등장 (presence) ============
   function clearFloaties() {
+    closeFortune();
     stopBirthdayCelebration();
     birthdayPressAtHome = false;
     document.querySelectorAll('.zzz-particle, .heart-particle').forEach((el) => el.remove());
@@ -649,6 +657,7 @@
 
   function setPresence(present) {
     refreshBirthday();
+    syncHiddenState();
     if (presentOnTab === present) return;
     presentOnTab = present;
     pet.classList.toggle('away', !present);
@@ -664,6 +673,7 @@
       }
     } else {
       scheduleUpdate();
+      checkFortune();
     }
   }
 
@@ -701,6 +711,8 @@
 
   pet.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
+    if (!visibilityReady || hiddenByTimer) return;
+    closeFortune();
     refreshBirthday();
     if (birthdayTimer) { e.preventDefault(); return; }
     if (isAtHome && !birthdayToday) return;
@@ -745,6 +757,8 @@
 
   house.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
+    if (!visibilityReady || hiddenByTimer) return;
+    closeFortune();
     isDraggingHouse = true;
     houseDragMoved = false;
     houseDragStartX = homeLeft();
@@ -856,40 +870,107 @@
   document.body.appendChild(menu);
   let menuOpenX = 0;
   let menuOpenY = 0;
+  let menuView = 'main';
+  const HIDE_DURATIONS = [
+    { action: 'hide-10m', label: '10 minutes', milliseconds: 10 * 60 * 1000 },
+    { action: 'hide-30m', label: '30 minutes', milliseconds: 30 * 60 * 1000 },
+    { action: 'hide-1h', label: '1 hour', milliseconds: 60 * 60 * 1000 },
+    { action: 'hide-1d', label: '1 day (24 hours)', milliseconds: 24 * 60 * 60 * 1000 },
+  ];
 
   // 펫 종류(공/딸랑이, 먹이 이모지)와 잠 상태에 따라 항목이 달라져서 열 때마다 다시 그린다
   function renderMenu() {
     const playLabel = (PLAY_KIND[currentPet] || 'ball') === 'teaser'
       ? '🪶 Play (teaser)'
       : `${TOY_EMOJI[currentPet] || '🎾'} Throw a ball`;
-    menu.innerHTML = [
+    const items = menuView === 'hide'
+      ? [['back', '← Back'], ...HIDE_DURATIONS.map(({ action, label }) => [action, label])]
+      : [
       ['play', playLabel],
       ['feed', `${FOOD_EMOJI[currentPet] || '🍖'} Feed`],
       ['settings', '⚙️ Settings'],
-      ['remove', '🚫 Remove from this page'],
+      ['fortune', `✦ ${PetFortune.copy(currentLanguage).title}`],
+      ['hide', '⏳ Hide for…'],
       isAtHome ? ['wake', '🌞 Wake up'] : ['sleep', '💤 Go to sleep'],
-    ].map(([action, label]) => `<button type="button" data-action="${action}">${label}</button>`).join('');
+    ];
+    menu.innerHTML = items.map(([action, label]) => `<button type="button" data-action="${action}">${label}</button>`).join('');
   }
 
   function openMenu(clientX, clientY) {
+    syncHiddenState();
+    if (!visibilityReady || hiddenByTimer || !presentOnTab || isDevToolsOpen || document.hidden) return;
+    closeFortune();
     menuOpenX = clientX;
     menuOpenY = clientY;
+    menuView = 'main';
     renderMenu();
     menu.classList.add('show');
+    positionMenu();
+  }
+
+  function positionMenu() {
     // 크기를 재려면 먼저 보여야 한다. 화면 밖으로 넘어가지 않게 접어 넣는다.
     const { width, height } = menu.getBoundingClientRect();
-    menu.style.left = `${Math.max(8, Math.min(clientX, window.innerWidth - width - 8))}px`;
-    menu.style.top = `${Math.max(8, Math.min(clientY, window.innerHeight - height - 8))}px`;
+    menu.style.left = `${Math.max(8, Math.min(menuOpenX, window.innerWidth - width - 8))}px`;
+    menu.style.top = `${Math.max(8, Math.min(menuOpenY, window.innerHeight - height - 8))}px`;
   }
 
   const closeMenu = () => menu.classList.remove('show');
 
-  // 현재 페이지에서만 치운다. 새로고침하면 다시 나온다.
-  function removeFromPage() {
-    removedFromPage = true;
-    pet.classList.add('hidden');
-    house.classList.add('hidden');
+  function validHiddenUntil(value) {
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  }
+
+  function pausePet() {
     clearFloaties();
+    closeMenu();
+    isDragging = false;
+    isDraggingHouse = false;
+    pet.classList.remove('dragging', 'petting');
+    house.classList.remove('dragging');
+    if (thought) thought.classList.remove('show');
+    state = isAtHome ? 'sleeping' : 'idle';
+    stateTimer = isAtHome ? Number.POSITIVE_INFINITY : 90;
+    pet.dataset.state = state;
+    vx = 0;
+    vy = 0;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+  }
+
+  function syncHiddenState() {
+    clearTimeout(hideTimer);
+    hideTimer = 0;
+    const wasHidden = hiddenByTimer;
+    hiddenByTimer = petHiddenUntil > Date.now();
+    const hidden = !visibilityReady || hiddenByTimer;
+    pet.classList.toggle('hidden', hidden);
+    house.classList.toggle('hidden', hidden);
+    if (hiddenByTimer && !wasHidden) pausePet();
+    if (hiddenByTimer) {
+      // Use the absolute deadline, including after suspend or a system clock change.
+      hideTimer = setTimeout(syncHiddenState, Math.min(petHiddenUntil - Date.now(), 60000));
+    } else if (!hidden) {
+      scheduleUpdate();
+      checkFortune();
+    }
+    // Never write an expired value back: another tab may have set a later deadline.
+  }
+
+  function hideFor(milliseconds) {
+    const previous = petHiddenUntil;
+    const until = Date.now() + milliseconds;
+    petHiddenUntil = until;
+    syncHiddenState();
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ petHiddenUntil: until }, () => {
+        if (chrome.runtime.lastError && petHiddenUntil === until) {
+          petHiddenUntil = previous;
+          syncHiddenState();
+          showThought(PetLanguage.text('Could not hide. Try again.', currentLanguage));
+        }
+      });
+    }
   }
 
   // 자는 중에 놀이/먹이를 시키면 먼저 깨운다.
@@ -913,7 +994,7 @@
     play: () => { wakeUpIfHome(); startPlay(menuOpenX, menuOpenY); },
     feed: () => { wakeUpIfHome(); startFeed(); },
     settings: openSettings,
-    remove: removeFromPage,
+    fortune: openFortune,
     sleep: () => applyAtHome(true),
     wake: () => applyAtHome(false),
   };
@@ -931,8 +1012,19 @@
   menu.addEventListener('click', (e) => {
     const item = e.target.closest('[data-action]');
     if (!item) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (item.dataset.action === 'hide' || item.dataset.action === 'back') {
+      menuView = item.dataset.action === 'hide' ? 'hide' : 'main';
+      renderMenu();
+      positionMenu();
+      menu.querySelector('button').focus();
+      return;
+    }
     closeMenu();
-    MENU_ACTIONS[item.dataset.action]();
+    const duration = HIDE_DURATIONS.find(({ action }) => action === item.dataset.action);
+    if (duration) hideFor(duration.milliseconds);
+    else if (MENU_ACTIONS[item.dataset.action]) MENU_ACTIONS[item.dataset.action]();
   });
 
   // 메뉴 밖을 누르면 닫는다. 캡처 단계에서 잡아야 페이지가 이벤트를 먹어도 닫힌다.
@@ -942,6 +1034,143 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeMenu();
+  });
+
+  // ============ 매일 한 장의 타로 ============
+  function sendFortune(action, extra = {}, date = fortuneDate) {
+    return new Promise((resolve) => {
+      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+        resolve({ ok: false, error: 'UNAVAILABLE' });
+        return;
+      }
+      try {
+        chrome.runtime.sendMessage({ type: 'PET_FORTUNE', action, date, ...extra }, (response) => {
+          resolve(chrome.runtime.lastError || !response ? { ok: false, error: 'UNAVAILABLE' } : response);
+        });
+      } catch (error) {
+        resolve({ ok: false, error: 'UNAVAILABLE' });
+      }
+    });
+  }
+
+  function fortuneCanOpen() {
+    return fortuneUI && visibilityReady && !hiddenByTimer && presentOnTab && !isDevToolsOpen && !document.hidden && !isDragging && !isDraggingHouse && !birthdayTimer;
+  }
+
+  function invalidateFortuneRequest() {
+    fortuneGeneration++;
+    fortuneBusy = false;
+    if (fortuneToken) sendFortune('release', { token: fortuneToken }, fortuneDate);
+    fortuneToken = null;
+    scheduleUpdate();
+  }
+
+  function closeFortune() {
+    if (fortuneUI && fortuneUI.isOpen()) fortuneUI.close();
+    else invalidateFortuneRequest();
+  }
+
+  function prepareFortune() {
+    stopBirthdayCelebration();
+    removeToy();
+    removeTeaser();
+    removeFood();
+    playMode = null;
+    if (thought) thought.classList.remove('show');
+    vx = 0;
+    vy = 0;
+    state = isAtHome ? 'sleeping' : 'idle';
+    stateTimer = isAtHome ? Number.POSITIVE_INFINITY : 90;
+    pet.dataset.state = state;
+    if (!isAtHome) y = groundY();
+  }
+
+  function currentFortuneRequest(generation, date) {
+    if (date !== PetFortune.day()) {
+      if (generation === fortuneGeneration) closeFortune();
+      return false;
+    }
+    return generation === fortuneGeneration && date === PetFortune.day() && fortuneCanOpen();
+  }
+
+  async function openFortune() {
+    stopBirthdayCelebration();
+    closeFortune();
+    if (!fortuneCanOpen()) return;
+    fortuneDate = PetFortune.day();
+    const date = fortuneDate;
+    const generation = ++fortuneGeneration;
+    fortuneBusy = true;
+    prepareFortune();
+    fortuneUI.showLoading();
+    const response = await sendFortune('load', {}, date);
+    if (!currentFortuneRequest(generation, date)) return;
+    fortuneBusy = false;
+    if (!response.ok) fortuneUI.showError(response.error);
+    else if (response.result) fortuneUI.showResult(response.result);
+    else fortuneUI.showCards();
+  }
+
+  async function chooseFortune(slot) {
+    const date = fortuneDate;
+    const generation = ++fortuneGeneration;
+    fortuneBusy = true;
+    const response = await sendFortune('draw', { slot }, date);
+    if (!currentFortuneRequest(generation, date)) return;
+    fortuneBusy = false;
+    if (!response.ok) fortuneUI.showError(response.error);
+    else {
+      fortuneAutoDoneDate = date;
+      fortuneUI.showResult(response.result);
+    }
+  }
+
+  async function checkFortune() {
+    if (!fortuneUI) return;
+    const date = PetFortune.day();
+    if (date !== fortuneDate) {
+      closeFortune();
+      fortuneDate = date;
+      fortuneAutoDoneDate = '';
+      fortuneRetryAfter = 0;
+    }
+    if (!PetFortune.isMorning() || !fortuneCanOpen() || fortuneUI.isOpen() || fortuneBusy || fortuneAutoDoneDate === date || Date.now() < fortuneRetryAfter || menu.classList.contains('show') || playMode || foodEl) return;
+    const generation = ++fortuneGeneration;
+    fortuneBusy = true;
+    fortuneRetryAfter = Date.now() + 30000;
+    const claim = await sendFortune('claim', {}, date);
+    if (!currentFortuneRequest(generation, date)) {
+      if (claim.token) sendFortune('release', { token: claim.token }, date);
+      if (generation === fortuneGeneration) fortuneBusy = false;
+      return;
+    }
+    if (!claim.ok || !claim.available) {
+      fortuneBusy = false;
+      if (claim.autoShown || claim.result) fortuneAutoDoneDate = date;
+      return;
+    }
+    fortuneToken = claim.token;
+    prepareFortune();
+    fortuneUI.showCards(true);
+    const shown = await sendFortune('shown', { token: claim.token }, date);
+    if (!currentFortuneRequest(generation, date)) return;
+    fortuneBusy = false;
+    fortuneToken = null;
+    if (!shown.ok) fortuneUI.showError(shown.error);
+    else {
+      fortuneAutoDoneDate = date;
+      if (shown.result) fortuneUI.showResult(shown.result);
+      else fortuneUI.showCards();
+    }
+  }
+
+  fortuneUI = PetFortuneUI.create({
+    getAnchor: () => ({ left: x, top: y, width: PET_W, height: PET_H }),
+    getTheme: () => currentTheme,
+    getLanguage: () => currentLanguage,
+    onSelect: chooseFortune,
+    onClose: invalidateFortuneRequest,
+    onRetry: openFortune,
   });
 
   // ============ 상태 전이 ============
@@ -993,7 +1222,7 @@
     } else if (r < 0.9) {
       state = 'sleeping';
       stateTimer = 800 + Math.random() * 1000;
-      showThought('zzZ');
+      showThought(PetLanguage.text('zzZ', currentLanguage));
     } else {
       state = 'idle';
       stateTimer = 200 + Math.random() * 300;
@@ -1001,10 +1230,8 @@
   }
 
   // ============ 메인 루프 ============
-  let rafId = 0;
-
   function scheduleUpdate() {
-    if (rafId) return;
+    if (rafId || !visibilityReady || hiddenByTimer || !presentOnTab || isDevToolsOpen || document.hidden) return;
     rafId = requestAnimationFrame(update);
   }
 
@@ -1013,7 +1240,15 @@
   function update() {
     rafId = 0;
     // 개발자도구가 열려 있거나, 이 페이지에서 치웠거나, 다른 탭/창에 펫이 있으면 루프를 멈춘다
-    if (isDevToolsOpen || removedFromPage || !presentOnTab) return;
+    if (isDevToolsOpen || !visibilityReady || hiddenByTimer || !presentOnTab || document.hidden) return;
+
+    if (fortuneUI && fortuneUI.isOpen()) {
+      pet.style.setProperty('--x', `${x}px`);
+      pet.style.setProperty('--y', `${y}px`);
+      fortuneUI.position();
+      scheduleUpdate();
+      return;
+    }
 
     if (state === 'birthday') {
       if (isAtHome) { x = petHomeX(); y = petHomeY(); }
@@ -1178,7 +1413,7 @@
             facing = dx > 0 ? 1 : -1;
             state = 'eating';
             stateTimer = 160;
-            showThought('nom nom');
+            showThought(PetLanguage.text('nom nom', currentLanguage));
           } else {
             vx = (dx > 0 ? 2.4 : -2.4) * speedMul;
             facing = dx > 0 ? 1 : -1;
@@ -1331,18 +1566,26 @@
     applyCushionPosition();
     if (y > groundY()) y = groundY();
     if (x > window.innerWidth - PET_W) x = window.innerWidth - PET_W;
+    if (menu.classList.contains('show')) positionMenu();
+    if (fortuneUI) fortuneUI.position();
   });
 
   setTimeout(() => showThought(getGreeting()), 500);
   refreshBirthday();
   document.addEventListener('visibilitychange', () => {
     refreshBirthday();
-    if (document.hidden) stopBirthdayCelebration();
+    syncHiddenState();
+    if (document.hidden) pausePet();
   });
-  window.addEventListener('focus', refreshBirthday);
-  window.addEventListener('pageshow', refreshBirthday);
+  function resumePet() {
+    refreshBirthday();
+    syncHiddenState();
+  }
+  window.addEventListener('focus', resumePet);
+  window.addEventListener('pageshow', resumePet);
   window.addEventListener('pagehide', () => {
-    stopBirthdayCelebration();
+    pausePet();
     clearTimeout(birthdayClockTimer);
+    clearTimeout(hideTimer);
   });
 })();

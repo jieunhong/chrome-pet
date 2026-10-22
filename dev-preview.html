@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <title>Screen Pet — 테마 미리보기</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="fortune.css">
   <style>
     :root {
       --zoom: 2;
@@ -219,6 +220,17 @@
     </div>
   </div>
   <p class="sub">생일 모자를 켜면 모든 펫에 적용됩니다. 펫을 누르거나 ‘초 불기’를 눌러 일반/도트 애니메이션을 비교하세요.</p>
+  <div class="controls">
+    <div class="group">
+      <label for="fortunePreviewTheme">운세 시연</label>
+      <select id="fortunePreviewTheme"><option value="normal">일반</option><option value="pixel">도트</option></select>
+      <select id="fortunePreviewLanguage" aria-label="운세 언어"><option value="ko">한국어</option><option value="en">English</option></select>
+      <select id="fortunePreviewOrientation" aria-label="다음 카드 방향"><option value="auto">방향 자동</option><option value="upright">정방향</option><option value="reversed">역방향</option></select>
+      <button type="button" id="fortunePreviewOpen">✦ 카드 펼치기 / 결과 보기</button>
+      <button type="button" id="fortunePreviewReset">시연 새로 뽑기</button>
+    </div>
+  </div>
+  <p class="sub">운세 시연은 실제 저장값을 바꾸지 않습니다. 방향 옵션은 다음에 뽑는 카드에 적용됩니다. 이미 결과가 있으면 ‘시연 새로 뽑기’를 누른 뒤 카드 한 장을 고르세요.</p>
 
   <table id="board"></table>
 
@@ -229,6 +241,9 @@
   <script src="pets.js"></script>
   <script src="pets-pixel.js"></script>
   <script src="birthday.js"></script>
+  <script src="language.js"></script>
+  <script src="fortune.js"></script>
+  <script src="fortune-ui.js"></script>
   <script>
     (function () {
       const STATES = ['idle', 'sitting', 'walking', 'running', 'jumping', 'dancing', 'sleeping'];
@@ -418,6 +433,50 @@
       buildGroup('bgGroup', Object.keys(BGS), 'light', (name) => {
         document.documentElement.style.setProperty('--stage-bg', BGS[name]);
       });
+
+      const fortuneTheme = document.getElementById('fortunePreviewTheme');
+      const fortuneLanguage = document.getElementById('fortunePreviewLanguage');
+      const fortuneOrientation = document.getElementById('fortunePreviewOrientation');
+      fortuneTheme.value = 'normal';
+      fortuneLanguage.value = PetLanguage.resolve('auto');
+      fortuneOrientation.value = 'auto';
+      let demoDaily = PetFortune.dailyState(null);
+      const fortunePreview = PetFortuneUI.create({
+        getAnchor: () => {
+          const target = [...board.querySelectorAll('#screen-pet')].find((el) => el.dataset.theme === fortuneTheme.value);
+          return target.getBoundingClientRect();
+        },
+        getTheme: () => fortuneTheme.value,
+        getLanguage: () => fortuneLanguage.value,
+        onSelect: (slot) => {
+          // Only the draw's first random sample selects direction. Score stays random.
+          let firstSample = true;
+          const previewRandom = () => {
+            if (firstSample) {
+              firstSample = false;
+              if (fortuneOrientation.value === 'upright') return 0.75;
+              if (fortuneOrientation.value === 'reversed') return 0.25;
+            }
+            return Math.random();
+          };
+          demoDaily = PetFortune.draw(demoDaily, slot, previewRandom);
+          fortunePreview.showResult(demoDaily.result);
+        },
+        onClose: () => {},
+        onRetry: () => fortunePreview.showCards(),
+      });
+      document.getElementById('fortunePreviewOpen').addEventListener('click', () => {
+        if (demoDaily.result) fortunePreview.showResult(demoDaily.result);
+        else fortunePreview.showCards();
+      });
+      document.getElementById('fortunePreviewReset').addEventListener('click', () => {
+        demoDaily = PetFortune.dailyState(null);
+        fortunePreview.showCards();
+      });
+      fortuneTheme.addEventListener('change', fortunePreview.refresh);
+      fortuneLanguage.addEventListener('change', fortunePreview.refresh);
+      window.addEventListener('resize', fortunePreview.position);
+      window.addEventListener('scroll', fortunePreview.position, { passive: true });
     })();
   </script>
 </body>

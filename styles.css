@@ -204,7 +204,7 @@
   display: none;
 }
 
-/* 우클릭 메뉴의 "Remove from this page" 로 치운 상태 (새로고침하면 돌아온다) */
+/* 저장된 숨김 기간 동안, 또는 초기 숨김 설정을 읽는 동안 표시하지 않는다. */
 #screen-pet.hidden,
 #pet-house.hidden {
   display: none;
@@ -217,7 +217,10 @@
   left: 0;
   z-index: 2147483647;
   display: none;
-  min-width: 196px;
+  min-width: min(196px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow: auto;
   padding: 6px;
   box-sizing: border-box;
   background: #fffaf3;
@@ -259,7 +262,8 @@
   margin-top: 2px;
 }
 
-#pet-menu button:hover {
+#pet-menu button:hover,
+#pet-menu button:focus-visible {
   background: #ffe8d6;
 }
 

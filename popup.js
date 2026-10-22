@@ -172,9 +172,59 @@
     birthdayStatus.textContent = 'Defaults to installation day. Celebrate every year!';
   });
 
+  const languageSelect = document.getElementById('petLanguageSelect');
+  const languageStatus = document.getElementById('languageStatus');
+  let savedLanguage = 'auto';
+  let languageValueReceived = false;
+
+  function showLanguagePreference(value) {
+    savedLanguage = PetLanguage.normalizePreference(value);
+    languageSelect.value = savedLanguage;
+    languageStatus.textContent = PetLanguage.resolve(savedLanguage) === 'ko'
+      ? '펫이 한국어로 말해요.' : 'Your pet speaks English.';
+  }
+
+  languageSelect.addEventListener('change', () => {
+    const preference = PetLanguage.normalizePreference(languageSelect.value);
+    languageSelect.disabled = true;
+    languageStatus.textContent = 'Saving… / 저장 중…';
+    chrome.storage.local.set({ petLanguage: preference }, () => {
+      languageSelect.disabled = false;
+      if (chrome.runtime.lastError) {
+        languageSelect.value = savedLanguage;
+        languageStatus.textContent = 'Could not save. Please try again. / 저장하지 못했어요. 다시 시도해 주세요.';
+        return;
+      }
+      languageValueReceived = true;
+      showLanguagePreference(preference);
+      chrome.tabs.query({}, (tabs) => {
+        if (chrome.runtime.lastError || !tabs) return;
+        tabs.forEach((tab) => {
+          if (tab.id) chrome.tabs.sendMessage(tab.id, { type: 'CHANGE_LANGUAGE', language: preference }).catch(() => {});
+        });
+      });
+    });
+  });
+
+  if (chrome.storage.onChanged) chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.petLanguage) {
+      languageValueReceived = true;
+      showLanguagePreference(changes.petLanguage.newValue);
+    }
+  });
+
   // 저장된 값 불러와서 초기 렌더
   if (chrome && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet', 'petName', 'theme', 'houseStyle'], (result) => {
+    chrome.storage.local.get(['pet', 'petName', 'theme', 'houseStyle', 'petLanguage'], (result) => {
+      if (chrome.runtime.lastError || !result) {
+        languageStatus.textContent = 'Could not load language. Reopen settings to retry.';
+        renderThemeTabs();
+        renderCards();
+        renderHouseCards();
+        return;
+      }
+      if (!languageValueReceived) showLanguagePreference(result.petLanguage);
+      languageSelect.disabled = false;
       if (result.pet) currentPet = result.pet;
       if (result.petName) nameInput.value = result.petName;
       if (result.theme && window.PET_THEMES[result.theme]) currentTheme = result.theme;

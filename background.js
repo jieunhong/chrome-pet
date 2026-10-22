@@ -6,6 +6,25 @@
  */
 
 importScripts('birthday.js');
+importScripts('fortune.js');
+
+const fortuneService = PetFortune.createService({
+  read: () => new Promise((resolve, reject) => {
+    chrome.storage.local.get(['fortuneDaily'], (stored) => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+      else resolve(stored.fortuneDaily);
+    });
+  }),
+  write: (fortuneDaily) => new Promise((resolve, reject) => {
+    chrome.storage.local.set({ fortuneDaily }, () => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+      else resolve();
+    });
+  }),
+  isActive: (sender) => new Promise((resolve) => {
+    computeActiveTab((tabId) => resolve(!!(sender.tab && sender.tab.id === tabId)));
+  }),
+});
 
 // Only the service worker initializes dates, including upgrades from older versions.
 let birthdayInitialization;
@@ -79,6 +98,11 @@ chrome.windows.onRemoved.addListener(broadcastPresence);
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message) return undefined;
+
+  if (message.type === 'PET_FORTUNE') {
+    fortuneService.request(message, sender).then(sendResponse);
+    return true;
+  }
 
   if (message.type === 'ENSURE_BIRTHDAY') {
     ensureBirthday().then(sendResponse, () => sendResponse({ error: 'Birthday could not be loaded.' }));

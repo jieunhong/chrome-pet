@@ -129,6 +129,7 @@
       transform: scale(1);
     }
 
+    .language-section,
     .birthday-section,
     .name-section,
     .house-section {
@@ -140,6 +141,7 @@
       gap: 8px;
     }
 
+    .language-section label,
     .birthday-section label,
     .name-section label,
     .house-section label {
@@ -159,6 +161,7 @@
       gap: 6px;
     }
 
+    #petLanguageSelect,
     #petBirthdayInput,
     #petNameInput {
       min-width: 0;
@@ -257,12 +260,23 @@
     <p class="hint" id="birthdayStatus" role="status" aria-live="polite">Loading birthday…</p>
   </div>
 
+  <div class="language-section">
+    <label for="petLanguageSelect">Pet Language / 펫 대사 언어</label>
+    <select id="petLanguageSelect" aria-describedby="languageStatus" disabled>
+      <option value="auto">Browser language (default)</option>
+      <option value="en">English</option>
+      <option value="ko">한국어</option>
+    </select>
+    <p class="hint" id="languageStatus" role="status" aria-live="polite">Loading language…</p>
+  </div>
+
   <p class="hint">Changes apply to all tabs instantly</p>
 
   <a class="donate" id="donate" target="_blank" rel="noopener">☕ Buy me a coffee</a>
 
   <script src="pets.js"></script>
   <script src="pets-pixel.js"></script>
+  <script src="language.js"></script>
   <script src="birthday.js"></script>
   <script src="popup.js"></script>
 </body>

@@ -91,15 +91,17 @@ class Element {
     };
   }
   setAttribute(name, value) {
-    if (name.startsWith('data-')) this.dataset[name.slice(5)] = value;
+    if (name.startsWith('data-')) this.dataset[name.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value;
     else this[name === 'class' ? 'className' : name] = value;
   }
   appendChild(child) { this.children.push(child); child.parentNode = this; return child; }
   remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter((child) => child !== this); }
   set innerHTML(html) {
+    this.html = html;
     this.children = [];
     this.insertAdjacentHTML('beforeend', html);
   }
+  get innerHTML() { return this.html || ''; }
   insertAdjacentHTML(position, html) {
     const stack = [this];
     for (const match of html.matchAll(/<\/?([\w-]+)\b([^>]*)>/g)) {
@@ -114,7 +116,9 @@ class Element {
     return selector.split(',').some((part) => {
       const parts = part.trim().split(/\s+/);
       const name = parts.pop();
-      const ownMatch = name[0] === '.' ? this.classList.contains(name.slice(1)) : name[0] === '#' ? this.id === name.slice(1) : this.tagName === name;
+      const attribute = name.match(/^\[([\w-]+)(?:="([^"]*)")?\]$/);
+      const value = attribute && (attribute[1].startsWith('data-') ? this.dataset[attribute[1].slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] : this[attribute[1]]);
+      const ownMatch = attribute ? value !== undefined && (attribute[2] === undefined || value === attribute[2]) : name[0] === '.' ? this.classList.contains(name.slice(1)) : name[0] === '#' ? this.id === name.slice(1) : this.tagName === name;
       return ownMatch && (!parts.length || !!this.parentNode?.closest(parts.join(' ')));
     });
   }
@@ -126,13 +130,19 @@ class Element {
     for (const fn of this.events[type] || []) fn({ button: 0, clientX: 900, clientY: 700, movementX: 0, movementY: 0, target: this, preventDefault() {}, stopPropagation() {}, ...event });
   }
   contains(node) { return node === this || this.children.some((child) => child.contains(node)); }
+  getBoundingClientRect() { return { left: 100, top: 300, width: 208, height: 220 }; }
+  focus() { this.focused = true; }
 }
 
-function contentHarness(stored = {}, initialTime = new Date(2026, 9, 22, 12).getTime()) {
+function contentHarness(stored = {}, initialTime = new Date(2026, 9, 22, 12).getTime(), options = {}) {
   let now = initialTime;
   let timerId = 0;
   const timers = new Map();
   const frames = new Map();
+  const writes = [];
+  const messages = [];
+  let failNextWrite = false;
+  let fortuneService = null;
   class Clock extends Date {
     constructor(...args) { super(...(args.length ? args : [now])); }
     static now() { return now; }
@@ -147,9 +157,20 @@ function contentHarness(stored = {}, initialTime = new Date(2026, 9, 22, 12).get
   document.createElement = (tag) => new Element(tag);
   document.hidden = false;
   const chrome = {
-    storage: { onChanged: eventSource(), local: {
-      get(keys, callback) { schedule(() => callback({ ...stored })); },
+    storage: { onChanged: options.storageChanges || eventSource(), local: {
+      get(keys, callback) {
+        const snapshot = { ...stored };
+        schedule(() => callback(snapshot), options.initialReadDelay || 0);
+      },
       set(patch, callback) {
+        writes.push(plain(patch));
+        if (failNextWrite) {
+          failNextWrite = false;
+          chrome.runtime.lastError = { message: 'Storage unavailable' };
+          if (callback) callback();
+          delete chrome.runtime.lastError;
+          return;
+        }
         const changes = Object.fromEntries(Object.entries(patch).map(([key, value]) => [key, { oldValue: stored[key], newValue: value }]));
         Object.assign(stored, patch);
         chrome.storage.onChanged.fire(changes, 'local');
@@ -157,12 +178,27 @@ function contentHarness(stored = {}, initialTime = new Date(2026, 9, 22, 12).get
       },
     } },
     runtime: { onMessage: eventSource(), sendMessage(message, callback) {
-      schedule(() => callback && callback(message.type === 'ENSURE_BIRTHDAY' ? { ...stored } : { present: true }));
+      messages.push(plain(message));
+      if (message.type === 'PET_FORTUNE') {
+        if (options.fortuneMessage) { options.fortuneMessage(message, callback); return; }
+        if (!fortuneService) fortuneService = context.PetFortune.createService({
+          read: async () => stored.fortuneDaily,
+          write: (fortuneDaily) => new Promise((resolve, reject) => chrome.storage.local.set({ fortuneDaily }, () => {
+            if (chrome.runtime.lastError) reject(new Error('storage unavailable'));
+            else resolve();
+          })),
+          isActive: async () => options.active !== false,
+          now: () => new Clock(),
+        });
+        fortuneService.request(message, { tab: { id: 1 } }).then((result) => callback && callback(result));
+        return;
+      }
+      schedule(() => callback && callback(message.type === 'ENSURE_BIRTHDAY' ? { ...stored } : { present: options.active !== false }));
     } },
   };
   const windowEvents = new Element();
   const context = vm.createContext({
-    document, chrome, Date: Clock, console,
+    document, chrome, Date: Clock, console, navigator: { language: options.browserLanguage || 'en-US' },
     innerWidth: 1100, innerHeight: 800, outerWidth: 1100, outerHeight: 880,
     addEventListener: (...args) => windowEvents.addEventListener(...args),
     setTimeout: (fn, delay) => schedule(fn, delay), clearTimeout: (id) => timers.delete(id),
@@ -171,7 +207,7 @@ function contentHarness(stored = {}, initialTime = new Date(2026, 9, 22, 12).get
     cancelAnimationFrame: (id) => frames.delete(id),
   });
   context.window = context;
-  for (const name of ['pets.js', 'pets-pixel.js', 'birthday.js', 'content.js']) load(context, name);
+  for (const name of ['pets.js', 'pets-pixel.js', 'language.js', 'birthday.js', 'fortune.js', 'fortune-ui.js', 'content.js']) load(context, name);
   function advance(ms) {
     const end = now + ms;
     for (;;) {
@@ -187,13 +223,188 @@ function contentHarness(stored = {}, initialTime = new Date(2026, 9, 22, 12).get
   }
   advance(0);
   const pet = document.querySelector('#screen-pet');
-  return { pet, document, chrome, advance, context,
+  return { pet, document, chrome, advance, context, writes, messages,
+    async flush() { for (let i = 0; i < 30; i++) { advance(0); await Promise.resolve(); } },
+    get pendingFrames() { return frames.size; },
+    failNextWrite() { failNextWrite = true; },
     click() { pet.fire('mousedown'); document.fire('mouseup'); },
     frame() { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach((fn) => fn()); },
     save(patch) { chrome.storage.local.set(patch); },
     focusAt(time) { now = time; windowEvents.fire('focus'); },
+    windowEvent(type) { windowEvents.fire(type); },
   };
 }
+
+function menuAction(app, action) {
+  const menu = app.document.querySelector('#pet-menu');
+  const item = menu.querySelector(`[data-action="${action}"]`);
+  assert.ok(item, `menu action ${action}`);
+  menu.fire('click', { target: item });
+  return menu;
+}
+
+function chooseHide(app, action = 'hide-10m') {
+  app.pet.fire('contextmenu');
+  menuAction(app, 'hide');
+  return menuAction(app, action);
+}
+
+test('숨김 메뉴의 10분·30분·1시간·하루는 정확한 절대 만료 시간을 저장한다', () => {
+  const start = new Date(2026, 9, 22, 23, 55).getTime();
+  for (const [action, minutes] of [['hide-10m', 10], ['hide-30m', 30], ['hide-1h', 60], ['hide-1d', 1440]]) {
+    const stored = {};
+    const app = contentHarness(stored, start);
+    const menu = chooseHide(app, action);
+    const deadline = start + minutes * 60000;
+    assert.equal(stored.petHiddenUntil, deadline);
+    assert.equal(menu.classList.contains('show'), false);
+    assert.equal(app.pet.classList.contains('hidden'), true);
+    assert.equal(app.document.querySelector('#pet-house').classList.contains('hidden'), true);
+    assert.equal(app.pendingFrames, 0);
+    app.focusAt(deadline - 1);
+    assert.equal(app.pet.classList.contains('hidden'), true);
+    app.focusAt(deadline);
+    assert.equal(app.pet.classList.contains('hidden'), false);
+    assert.equal(app.pendingFrames, 1);
+    assert.equal(stored.petHiddenUntil, deadline, 'expiry must not write back to storage');
+    assert.equal(app.writes.length, 1);
+  }
+});
+
+test('숨김은 탭 간 동기화와 새로고침 후 유지되고 이전 만료가 새 숨김을 덮어쓰지 않는다', () => {
+  const start = new Date(2026, 9, 22, 12).getTime();
+  const stored = {};
+  const storageChanges = eventSource();
+  const first = contentHarness(stored, start, { storageChanges });
+  const second = contentHarness(stored, start, { storageChanges });
+  chooseHide(first);
+  assert.equal(second.pet.classList.contains('hidden'), true);
+  const reloaded = contentHarness(stored, start + 1000);
+  assert.equal(reloaded.pet.classList.contains('hidden'), true);
+  second.save({ petHiddenUntil: start + 1800000 });
+  first.focusAt(start + 600000);
+  assert.equal(first.pet.classList.contains('hidden'), true);
+  assert.equal(first.writes.length, 1);
+  first.focusAt(start + 1800000);
+  assert.equal(first.pet.classList.contains('hidden'), false);
+  assert.equal(stored.petHiddenUntil, start + 1800000);
+});
+
+test('타이머 만료는 생일 소품을 복구하지 않고 활성 탭에서 수면 상태만 재개한다', () => {
+  const app = contentHarness({ atHome: true, petBirthday: '2020-10-22' });
+  app.click();
+  assert.ok(app.pet.querySelector('.birthday-scene'));
+  chooseHide(app);
+  assert.equal(app.pet.querySelector('.birthday-scene'), null);
+  assert.equal(app.pet.dataset.state, 'sleeping');
+  assert.equal(app.pendingFrames, 0);
+  app.advance(600000);
+  assert.equal(app.pet.classList.contains('hidden'), false);
+  assert.equal(app.pet.dataset.state, 'sleeping');
+  assert.equal(app.pet.querySelector('.birthday-scene'), null);
+  assert.ok(app.pet.querySelector('.birthday-hat'));
+  assert.equal(app.pendingFrames, 1);
+});
+
+test('숨김 만료는 비활성 탭·개발자도구·페이지 숨김의 표시 제한을 유지한다', () => {
+  const start = new Date(2026, 9, 22, 12).getTime();
+  const app = contentHarness({ petHiddenUntil: start + 1000 }, start);
+  app.chrome.runtime.onMessage.fire({ type: 'PET_PRESENCE', present: false });
+  app.advance(1000);
+  assert.equal(app.pet.classList.contains('hidden'), false);
+  assert.equal(app.pet.classList.contains('away'), true);
+  assert.equal(app.pendingFrames, 0);
+  app.chrome.runtime.onMessage.fire({ type: 'PET_PRESENCE', present: true });
+  assert.equal(app.pendingFrames, 1);
+  app.save({ petHiddenUntil: start + 2000 });
+  app.context.outerHeight = 1200;
+  app.windowEvent('resize');
+  app.advance(1000);
+  assert.equal(app.pet.classList.contains('devtools-hidden'), true);
+  assert.equal(app.pendingFrames, 0);
+  app.context.outerHeight = 880;
+  app.windowEvent('resize');
+  assert.equal(app.pendingFrames, 1);
+  app.save({ petHiddenUntil: start + 3000 });
+  app.document.hidden = true;
+  app.document.fire('visibilitychange');
+  app.advance(1000);
+  assert.equal(app.pendingFrames, 0);
+  app.document.hidden = false;
+  app.document.fire('visibilitychange');
+  assert.equal(app.pendingFrames, 1);
+});
+
+test('초기 저장값을 읽기 전에는 보이지 않고 늦은 초기 응답이 최신 숨김 변경을 덮지 않는다', () => {
+  const start = new Date(2026, 9, 22, 12).getTime();
+  const app = contentHarness({ petHiddenUntil: start + 1000 }, start, { initialReadDelay: 100 });
+  assert.equal(app.pet.classList.contains('hidden'), true);
+  assert.equal(app.document.querySelector('#pet-house').classList.contains('hidden'), true);
+  assert.equal(app.pendingFrames, 0);
+  app.save({ petHiddenUntil: start + 3600000 });
+  app.advance(100);
+  app.focusAt(start + 1000);
+  assert.equal(app.pet.classList.contains('hidden'), true);
+  app.focusAt(start + 3600000);
+  assert.equal(app.pet.classList.contains('hidden'), false);
+});
+
+test('숨김 저장 실패는 표시 상태를 복구하고 메뉴는 뒤로·Esc·바깥 클릭을 지원한다', () => {
+  const app = contentHarness();
+  app.pet.fire('contextmenu', { clientX: 1099, clientY: 799 });
+  let menu = menuAction(app, 'hide');
+  assert.deepEqual(menu.children.map((item) => item.dataset.action), ['back', 'hide-10m', 'hide-30m', 'hide-1h', 'hide-1d']);
+  assert.equal(menu.style.left, '884px');
+  assert.equal(menu.style.top, '572px');
+  assert.equal(menu.querySelector('button').focused, true);
+  menuAction(app, 'back');
+  assert.ok(menu.querySelector('[data-action="hide"]'));
+  assert.equal(menu.querySelector('[data-action="remove"]'), null);
+  menuAction(app, 'hide');
+  app.document.fire('keydown', { key: 'Escape' });
+  assert.equal(menu.classList.contains('show'), false);
+  app.pet.fire('contextmenu');
+  app.document.fire('mousedown', { target: app.document.body });
+  assert.equal(menu.classList.contains('show'), false);
+  app.failNextWrite();
+  chooseHide(app);
+  assert.equal(app.pet.classList.contains('hidden'), false);
+  assert.equal(app.document.querySelector('#pet-house').classList.contains('hidden'), false);
+  assert.equal(app.pendingFrames, 1);
+});
+
+test('숨김은 진행 중인 놀이·먹이·드래그·파티클을 정리하고 페이지 복귀에 만료를 재확인한다', () => {
+  const start = new Date(2026, 9, 22, 12).getTime();
+  for (const action of ['play', 'feed']) {
+    const app = contentHarness({ pet: 'dog' }, start);
+    app.pet.fire('contextmenu');
+    menuAction(app, action);
+    assert.ok(app.document.querySelector(action === 'play' ? '.pet-toy' : '.pet-food'));
+    app.pet.fire('mousedown');
+    assert.equal(app.pet.classList.contains('dragging'), true);
+    const house = app.document.querySelector('#pet-house');
+    house.fire('mousedown');
+    for (const name of ['zzz-particle', 'heart-particle']) {
+      const particle = app.document.createElement('div');
+      particle.className = name;
+      app.document.body.appendChild(particle);
+    }
+    app.save({ petHiddenUntil: start + 5000 });
+    assert.equal(app.pet.classList.contains('dragging'), false);
+    assert.equal(house.classList.contains('dragging'), false);
+    assert.equal(app.document.querySelectorAll('.zzz-particle, .heart-particle').length, 0);
+    assert.equal(app.document.querySelector('.pet-toy'), null);
+    assert.equal(app.document.querySelector('.pet-food'), null);
+    assert.equal(app.pet.dataset.state, 'idle');
+    assert.equal(app.pendingFrames, 0);
+    app.windowEvent('pagehide');
+    app.advance(5000);
+    assert.equal(app.pet.classList.contains('hidden'), true);
+    app.windowEvent('pageshow');
+    assert.equal(app.pet.classList.contains('hidden'), false);
+    assert.equal(app.pendingFrames, 1);
+  }
+});
 
 test('모든 펫과 테마에서 모자를 쓰고 클릭하면 케이크가 3초간 나타난다', () => {
   for (const theme of ['normal', 'pixel']) for (const pet of ['cat', 'dog', 'maltese_white', 'hamster', 'dino', 'harp_seal']) {
@@ -268,21 +479,23 @@ test('자정과 탭 복귀 시 날짜를 재판정하고 생일 수정은 즉시
 
 test('dev-preview에서 모자 토글과 전체·개별 3초 재생 및 상태 복귀가 동작한다', () => {
   const document = new Element('document');
+  document.body = document;
   document.documentElement = new Element('html');
   document.createElement = (tag) => new Element(tag);
   document.getElementById = (id) => document.querySelector(`#${id}`);
-  for (const id of ['board', 'variants', 'stateGroup', 'zoomGroup', 'bgGroup', 'birthdayToggle', 'birthdayPlay', 'birthdayPreviewStatus']) {
+  for (const id of ['board', 'variants', 'stateGroup', 'zoomGroup', 'bgGroup', 'birthdayToggle', 'birthdayPlay', 'birthdayPreviewStatus', 'fortunePreviewTheme', 'fortunePreviewLanguage', 'fortunePreviewOrientation', 'fortunePreviewOpen', 'fortunePreviewReset']) {
     const element = document.appendChild(new Element());
     element.id = id;
   }
   let timerId = 0;
   const timers = new Map();
   const context = vm.createContext({ document,
+    innerWidth: 1100, innerHeight: 800, addEventListener() {},
     setTimeout(fn, delay) { assert.equal(delay, 3000); timers.set(++timerId, fn); return timerId; },
     clearTimeout(id) { timers.delete(id); },
   });
   context.window = context;
-  for (const name of ['pets.js', 'pets-pixel.js', 'birthday.js']) load(context, name);
+  for (const name of ['pets.js', 'pets-pixel.js', 'language.js', 'birthday.js', 'fortune.js', 'fortune-ui.js']) load(context, name);
   const scripts = [...source('dev-preview.html').matchAll(/<script>([\s\S]*?)<\/script>/g)];
   scripts.forEach((match) => vm.runInContext(match[1], context));
   const pets = document.querySelectorAll('.stage #screen-pet');
@@ -308,13 +521,207 @@ test('dev-preview에서 모자 토글과 전체·개별 3초 재생 및 상태 �
   assert.equal(pets[0].dataset.state, 'sleeping');
   document.getElementById('birthdayToggle').fire('click');
   assert.equal(document.querySelectorAll('.birthday-hat').length, 0);
+  document.getElementById('fortunePreviewOpen').fire('click');
+  const panel = document.querySelector('.screen-pet-fortune');
+  assert.equal(panel.querySelectorAll('.fortune-card').length, 3);
+  panel.fire('click', { target: panel.querySelector('[data-fortune-slot="1"]') });
+  assert.ok(panel.querySelector('.fortune-result'));
+  document.getElementById('fortunePreviewTheme').value = 'pixel';
+  document.getElementById('fortunePreviewTheme').fire('change');
+  assert.equal(panel.querySelector('svg')['shape-rendering'], 'crispEdges');
+  document.getElementById('fortunePreviewLanguage').value = 'ko';
+  document.getElementById('fortunePreviewLanguage').fire('change');
+  assert.match(panel.innerHTML, /오늘의 운세 점수/);
+  document.getElementById('fortunePreviewReset').fire('click');
+  assert.equal(panel.querySelectorAll('.fortune-card').length, 3);
+  assert.equal(panel.querySelector('.fortune-orientation'), null);
+  assert.equal(panel.querySelector('[data-reversed]'), null, 'face-down cards do not reveal a direction');
+  const direction = document.getElementById('fortunePreviewOrientation');
+  direction.value = 'reversed';
+  panel.fire('click', { target: panel.querySelector('[data-fortune-slot="0"]') });
+  assert.equal(panel.querySelector('.fortune-selected-card').dataset.reversed, 'true');
+  assert.match(panel.innerHTML, /class="fortune-orientation">역방향/);
+  const selectedResult = panel.innerHTML;
+  direction.value = 'upright';
+  direction.fire('change');
+  document.getElementById('fortunePreviewOpen').fire('click');
+  assert.equal(panel.innerHTML, selectedResult, 'changing the next draw option never rerolls the displayed result');
+  document.getElementById('fortunePreviewReset').fire('click');
+  panel.fire('click', { target: panel.querySelector('[data-fortune-slot="2"]') });
+  assert.equal(panel.querySelector('.fortune-selected-card').dataset.reversed, 'false');
+  assert.match(panel.innerHTML, /class="fortune-orientation">정방향/);
+});
+
+test('정방향·역방향 결과는 일반·도트와 한국어·영어에서 해당 해석 및 방향을 표시한다', async () => {
+  for (const theme of ['normal', 'pixel']) for (const language of ['en', 'ko']) for (const reversed of [false, true]) {
+    const result = { date: '2026-10-22', cardId: 'hermit', score: 85, slot: 1, reversed };
+    const stored = { theme, petLanguage: language, fortuneDaily: { date: result.date, offer: ['sun', 'hermit', 'star'], autoShown: true, result } };
+    const app = contentHarness(stored);
+    app.pet.fire('contextmenu');
+    menuAction(app, 'fortune');
+    await app.flush();
+    const panel = app.document.querySelector('.screen-pet-fortune');
+    const selected = app.context.PetFortune.card(result.cardId);
+    const interpretation = reversed ? selected.reversed[language] : selected[language];
+    const direction = app.context.PetFortune.copy(language)[reversed ? 'reversed' : 'upright'];
+    assert.equal(panel.querySelector('.fortune-selected-card').dataset.reversed, String(reversed));
+    assert.match(panel.innerHTML, new RegExp(`class="fortune-orientation">${direction}`));
+    assert.ok(panel.innerHTML.includes(interpretation.item));
+    assert.ok(panel.innerHTML.includes(interpretation.reading));
+    assert.equal(panel.querySelector('svg')['shape-rendering'] === 'crispEdges', theme === 'pixel');
+    assert.deepEqual(plain(stored.fortuneDaily.result), result);
+  }
+  assert.match(source('fortune.css'), /\.fortune-selected-card\[data-reversed="true"\] svg\s*\{\s*transform:\s*rotate\(180deg\)/);
+});
+
+test('아침 운세는 세 장을 한 번만 제안하고 닫기·새로고침 후 자동으로 다시 펼치지 않는다', async () => {
+  const morning = new Date(2026, 9, 22, 8).getTime();
+  const stored = {};
+  const app = contentHarness(stored, morning);
+  await app.flush();
+  const panel = app.document.querySelector('.screen-pet-fortune');
+  assert.ok(panel);
+  assert.equal(panel.querySelectorAll('.fortune-card').length, 3);
+  assert.equal(stored.fortuneDaily.autoShown, true);
+  assert.equal(stored.fortuneDaily.result, null);
+  panel.fire('click', { target: panel.querySelector('[data-fortune-close]') });
+  app.advance(30000);
+  await app.flush();
+  assert.equal(app.document.querySelector('.screen-pet-fortune'), null);
+  const reload = contentHarness(stored, morning + 31000);
+  await reload.flush();
+  assert.equal(reload.document.querySelector('.screen-pet-fortune'), null);
+  reload.pet.fire('contextmenu');
+  menuAction(reload, 'fortune');
+  await reload.flush();
+  assert.equal(reload.document.querySelectorAll('.fortune-card').length, 3, 'manual draw remains available');
+});
+
+test('일반·도트 카드 선택은 점수·아이템·해석을 표시하고 언어 변경과 결과 재열람을 지원한다', async () => {
+  for (const theme of ['normal', 'pixel']) {
+    const stored = { theme, petLanguage: 'en', petBirthday: '2020-10-22' };
+    const app = contentHarness(stored);
+    app.pet.fire('contextmenu');
+    menuAction(app, 'fortune');
+    await app.flush();
+    const panel = app.document.querySelector('.screen-pet-fortune');
+    let stopped = 0;
+    panel.fire('mousedown', { stopPropagation() { stopped++; } });
+    panel.fire('mouseup', { stopPropagation() { stopped++; } });
+    assert.equal(stopped, 2);
+    assert.equal(app.pet.classList.contains('dragging'), false);
+    panel.fire('click', { target: panel.querySelector('[data-fortune-slot="2"]') });
+    await app.flush();
+    const result = plain(stored.fortuneDaily.result);
+    assert.equal(result.slot, 2);
+    assert.ok(panel.querySelector('.fortune-result'));
+    assert.ok(panel.querySelector('.fortune-score'));
+    assert.ok(panel.querySelector('.fortune-item'));
+    assert.ok(panel.querySelector('.fortune-reading'));
+    assert.equal(panel.querySelector('svg')['shape-rendering'] === 'crispEdges', theme === 'pixel');
+    assert.match(panel.innerHTML, /Lucky item/);
+    assert.ok(app.pet.querySelector('.birthday-hat'));
+    app.save({ petLanguage: 'ko' });
+    assert.match(panel.innerHTML, /행운의 아이템/);
+    assert.deepEqual(plain(stored.fortuneDaily.result), result);
+    app.document.fire('keydown', { key: 'Escape' });
+    assert.equal(app.document.querySelector('.screen-pet-fortune'), null);
+    app.pet.fire('contextmenu');
+    menuAction(app, 'fortune');
+    await app.flush();
+    assert.ok(app.document.querySelector('.fortune-result'));
+    assert.deepEqual(plain(stored.fortuneDaily.result), result);
+    app.save({ petHiddenUntil: new Date(2026, 9, 22, 13).getTime() });
+    assert.equal(app.document.querySelector('.screen-pet-fortune'), null);
+  }
+});
+
+test('숨김·비활성·개발자도구·생일 애니메이션 중에는 자동 제안 기회를 소모하지 않는다', async () => {
+  const morning = new Date(2026, 9, 22, 8).getTime();
+  const hidden = { petHiddenUntil: morning + 60000 };
+  const app = contentHarness(hidden, morning);
+  await app.flush();
+  assert.equal(hidden.fortuneDaily, undefined);
+  assert.equal(app.document.querySelector('.screen-pet-fortune'), null);
+  app.advance(60000);
+  await app.flush();
+  assert.ok(app.document.querySelector('.screen-pet-fortune'));
+  const inactive = {};
+  const away = contentHarness(inactive, morning, { active: false });
+  await away.flush();
+  assert.equal(inactive.fortuneDaily, undefined);
+  const devStored = {};
+  const dev = contentHarness(devStored, morning);
+  dev.context.outerHeight = 1200;
+  dev.windowEvent('resize');
+  await dev.flush();
+  assert.equal(devStored.fortuneDaily, undefined);
+  const birthdayStored = { petBirthday: '2020-10-22' };
+  const birthday = contentHarness(birthdayStored, morning);
+  birthday.click();
+  await birthday.flush();
+  assert.equal(birthdayStored.fortuneDaily, undefined);
+  assert.ok(birthday.pet.querySelector('.birthday-scene'));
+  birthday.advance(30000);
+  await birthday.flush();
+  assert.ok(birthday.document.querySelector('.screen-pet-fortune'));
+});
+
+test('운세 저장 실패는 오류와 재시도만 표시하고 다른 탭에서 확정한 결과를 반영한다', async () => {
+  const stored = {};
+  const app = contentHarness(stored);
+  app.failNextWrite();
+  app.pet.fire('contextmenu');
+  menuAction(app, 'fortune');
+  await app.flush();
+  let panel = app.document.querySelector('.screen-pet-fortune');
+  assert.ok(panel.querySelector('.fortune-error'));
+  assert.equal(stored.fortuneDaily, undefined);
+  panel.fire('click', { target: panel.querySelector('[data-fortune-retry]') });
+  await app.flush();
+  panel = app.document.querySelector('.screen-pet-fortune');
+  assert.equal(panel.querySelectorAll('.fortune-card').length, 3);
+  app.failNextWrite();
+  panel.fire('click', { target: panel.querySelector('[data-fortune-slot="0"]') });
+  await app.flush();
+  assert.ok(panel.querySelector('.fortune-error'));
+  assert.equal(stored.fortuneDaily.result, null);
+  const confirmed = app.context.PetFortune.draw(stored.fortuneDaily, 1);
+  app.save({ fortuneDaily: confirmed });
+  assert.ok(panel.querySelector('.fortune-result'));
+  assert.match(panel.innerHTML, new RegExp(String(confirmed.result.score)));
+});
+
+test('숨김 중 도착한 자동 예약은 해제하고 날짜가 바뀐 뒤 도착한 응답은 표시하지 않는다', async () => {
+  const morning = new Date(2026, 9, 22, 8).getTime();
+  const pending = [];
+  const app = contentHarness({}, morning, { fortuneMessage(message, callback) {
+    if (message.action === 'release') callback({ ok: true, date: message.date });
+    else pending.push({ message, callback });
+  } });
+  assert.equal(pending[0].message.action, 'claim');
+  app.save({ petHiddenUntil: morning + 60000 });
+  pending.shift().callback({ ok: true, date: '2026-10-22', available: true, token: 'reservation' });
+  await app.flush();
+  assert.ok(app.messages.some((message) => message.action === 'release'));
+  assert.equal(app.messages.some((message) => message.action === 'shown'), false);
+  assert.equal(app.document.querySelector('.screen-pet-fortune'), null);
+
+  const responses = [];
+  const stale = contentHarness({}, new Date(2026, 9, 22, 23, 59).getTime(), { fortuneMessage(message, callback) { responses.push({ message, callback }); } });
+  stale.pet.fire('contextmenu');
+  menuAction(stale, 'fortune');
+  stale.focusAt(new Date(2026, 9, 23, 12).getTime());
+  responses[0].callback({ ok: true, date: '2026-10-22', result: { date: '2026-10-22', cardId: 'sun', score: 95, slot: 0 } });
+  await stale.flush();
+  assert.equal(stale.document.querySelector('.screen-pet-fortune'), null);
 });
 
 test('설정은 생일을 불러오고 유효한 저장값만 반영하며 미저장 입력은 탭에 전송하지 않는다', () => {
   const document = new Element('document');
   document.createElement = (tag) => new Element(tag);
   document.getElementById = (id) => document.querySelector(`#${id}`);
-  for (const id of ['donate', 'grid', 'houseGrid', 'themeTabs', 'petNameInput', 'saveNameBtn', 'petBirthdayInput', 'saveBirthdayBtn', 'birthdayStatus']) {
+  for (const id of ['donate', 'grid', 'houseGrid', 'themeTabs', 'petNameInput', 'saveNameBtn', 'petBirthdayInput', 'saveBirthdayBtn', 'birthdayStatus', 'petLanguageSelect', 'languageStatus']) {
     const element = document.appendChild(new Element());
     element.id = id;
   }
@@ -337,7 +744,7 @@ test('설정은 생일을 불러오고 유효한 저장값만 반영하며 미�
   };
   const context = vm.createContext({ document, chrome });
   context.window = context;
-  for (const name of ['pets.js', 'pets-pixel.js', 'birthday.js', 'popup.js']) load(context, name);
+  for (const name of ['pets.js', 'pets-pixel.js', 'language.js', 'birthday.js', 'popup.js']) load(context, name);
   assert.equal(input.value, '2026-10-22');
   const save = document.getElementById('saveBirthdayBtn');
   input.value = '2026-02-29';
@@ -351,4 +758,102 @@ test('설정은 생일을 불러오고 유효한 저장값만 반영하며 미�
   assert.equal(stored.petBirthday, '2000-05-03');
   assert.equal(stored.installedOn, '2026-10-22');
   assert.equal(messages[0].birthday, '2000-05-03');
+});
+
+test('브라우저 한국어가 기본 대사에 적용되고 수동 선택은 전탭·새로고침에도 유지된다', () => {
+  const stored = {};
+  const storageChanges = eventSource();
+  const start = new Date(2026, 9, 22, 9).getTime();
+  const first = contentHarness(stored, start, { storageChanges, browserLanguage: 'ko-KR' });
+  const second = contentHarness(stored, start, { storageChanges, browserLanguage: 'ko-KR' });
+  first.advance(500);
+  second.advance(500);
+  assert.equal(first.pet.querySelector('.pet-thought').textContent, '좋은 아침! ☀️');
+  assert.equal(second.pet.querySelector('.pet-thought').textContent, '좋은 아침! ☀️');
+  assert.equal(stored.petLanguage, undefined, '자동 기본값을 불필요하게 저장하지 않는다');
+  first.save({ petLanguage: 'en' });
+  assert.equal(second.pet.querySelector('.pet-thought').classList.contains('show'), false);
+  first.save({ atHome: true });
+  first.save({ atHome: false });
+  assert.equal(first.pet.querySelector('.pet-thought').textContent, 'good morning! ☀️');
+  assert.equal(second.pet.querySelector('.pet-thought').textContent, 'good morning! ☀️');
+  const reload = contentHarness(stored, start, { browserLanguage: 'ko-KR' });
+  reload.advance(500);
+  assert.equal(reload.pet.querySelector('.pet-thought').textContent, 'good morning! ☀️');
+  first.save({ petLanguage: 'auto' });
+  first.save({ atHome: true });
+  first.save({ atHome: false });
+  assert.equal(second.pet.querySelector('.pet-thought').textContent, '좋은 아침! ☀️');
+});
+
+test('초기 언어 응답보다 최신 저장변경을 우선하고 일본어 브라우저는 영어로 말한다', () => {
+  const start = new Date(2026, 9, 22, 9).getTime();
+  const app = contentHarness({ petLanguage: 'en' }, start, { initialReadDelay: 100, browserLanguage: 'ja' });
+  app.save({ petLanguage: 'ko' });
+  app.advance(500);
+  assert.equal(app.pet.querySelector('.pet-thought').textContent, '좋은 아침! ☀️');
+  app.save({ petLanguage: 'auto' });
+  app.save({ atHome: true });
+  app.save({ atHome: false });
+  assert.equal(app.pet.querySelector('.pet-thought').textContent, 'good morning! ☀️');
+});
+
+test('언어 설정은 선택값을 저장·전송하고 실패하면 기존 선택을 유지한다', () => {
+  const document = new Element('document');
+  document.createElement = (tag) => new Element(tag);
+  document.getElementById = (id) => document.querySelector(`#${id}`);
+  for (const id of ['donate', 'grid', 'houseGrid', 'themeTabs', 'petNameInput', 'saveNameBtn', 'petBirthdayInput', 'saveBirthdayBtn', 'birthdayStatus', 'petLanguageSelect', 'languageStatus']) {
+    const element = document.appendChild(new Element());
+    element.id = id;
+  }
+  const stored = { petBirthday: '2026-10-22' };
+  const pending = [];
+  const messages = [];
+  let failWrite = false;
+  const chrome = {
+    runtime: { sendMessage(message, callback) { callback({ ...stored }); } },
+    storage: { onChanged: eventSource(), local: {
+      get(keys, callback) { callback({ ...stored }); },
+      set(patch, callback) {
+        pending.push(() => {
+          if (failWrite) chrome.runtime.lastError = { message: 'Storage unavailable' };
+          else Object.assign(stored, patch);
+          callback();
+          delete chrome.runtime.lastError;
+        });
+      },
+    } },
+    tabs: {
+      query(query, callback) { pending.push(() => callback([{ id: 1 }, { id: 2 }])); },
+      sendMessage(id, message) { messages.push(message); return Promise.resolve(); },
+    },
+  };
+  const context = vm.createContext({ document, chrome, navigator: { language: 'ko-KR' } });
+  context.window = context;
+  for (const name of ['pets.js', 'pets-pixel.js', 'language.js', 'birthday.js', 'popup.js']) load(context, name);
+  const select = document.getElementById('petLanguageSelect');
+  const status = document.getElementById('languageStatus');
+  assert.equal(select.value, 'auto');
+  assert.equal(status.textContent, '펫이 한국어로 말해요.');
+  select.value = 'en';
+  select.fire('change');
+  assert.equal(select.disabled, true);
+  select.value = 'ko';
+  pending.shift()();
+  pending.shift()();
+  assert.equal(stored.petLanguage, 'en');
+  assert.equal(messages.length, 2);
+  assert.equal(messages[0].language, 'en', '저장 완료 전 바뀐 입력이 아닌 캡처한 값을 전송한다');
+  failWrite = true;
+  select.value = 'ko';
+  select.fire('change');
+  pending.shift()();
+  assert.equal(select.disabled, false);
+  assert.equal(select.value, 'en');
+  assert.equal(stored.petLanguage, 'en');
+  assert.equal(messages.length, 2);
+  assert.match(status.textContent, /Could not save/);
+  chrome.storage.onChanged.fire({ petLanguage: { newValue: 'ko' } }, 'local');
+  assert.equal(select.value, 'ko');
+  assert.equal(status.textContent, '펫이 한국어로 말해요.');
 });
