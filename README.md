@@ -6,6 +6,7 @@ Choose from **Ginger Cat 🐱 / Maltese 🐶 / Hamster 🐹 / Dino 🦕**.
 ## Features
 
 - **Personalized Naming**: Give your pet a name that floats above their head!
+- **Birthday Celebration**: Your pet wears a party hat all day on its birthday. Click it for a three-second cake and candle-blowing celebration, in both soft and pixel art.
 - **Interactive States**: Idle, Walking, Running, Jumping, Dancing, and **Sleeping (Zzz)**.
 - **English Dialogue System**: Pets express their thoughts with localized strings and emojis.
 - **Real-time Sync**: Changes in name or pet type are instantly reflected across all open tabs.
@@ -28,6 +29,8 @@ Choose from **Ginger Cat 🐱 / Maltese 🐶 / Hamster 🐹 / Dino 🦕**.
 Click the **Screen Pet icon** in your extension toolbar.
 - Click a pet card to switch instantly.
 - Type a name and click **"Save"** to update your pet's name label.
+- Set **Pet Birthday** and click **"Save"** to change its birthday. The default is the local installation date; changing it does not change the recorded installation date. Older installations without a recorded date use the day they first run this version.
+- Birthdays repeat on the same local month and day each year (February 29 celebrates on leap years). Hats update at midnight and when returning to a tab. A sleeping pet can celebrate and then return to sleep.
 
 ## Controls
 
@@ -52,6 +55,7 @@ Click the **Screen Pet icon** in your extension toolbar.
 screen-pet/
 ├── manifest.json     # Extension configuration
 ├── pets.js           # Shared SVG definitions & pet list
+├── birthday.js       # Local birthday rules and shared celebration artwork
 ├── content.js        # Core logic (physics, state machine, interactions)
 ├── styles.css        # Visual styles and animations
 ├── popup.html        # Settings UI (Selection & Naming)
@@ -63,8 +67,13 @@ screen-pet/
 ## Technical Overview
 
 - **Storage**: Uses `chrome.storage.local` to persist the selected pet and name.
+- **Birthday storage**: `installedOn` and editable `petBirthday` are local `YYYY-MM-DD` strings, initialized once by the background worker.
 - **Sync**: Monitors `chrome.storage.onChanged` in `content.js` to update all tabs immediately without refresh.
 - **Dialogue**: Uses a weighted random selection from the `PET_THOUGHTS` object in `content.js`.
+
+## Development Checks
+
+For birthday checks, open `dev-preview.html` and use **모자 켜기 / 초 불기 (3초)** to compare all pets in both themes. Clicking a preview pet also plays its celebration. Run `node --test tests/*.test.js` for automated checks.
 
 ## How to Add a New Pet
 

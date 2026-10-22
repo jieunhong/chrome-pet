@@ -229,7 +229,22 @@
         },
         // 우클릭 메뉴의 Settings 는 background 로 메시지를 보낸다. 하네스에서는 로그로 확인한다.
         runtime: {
-          sendMessage(message) {
+          onMessage: {
+            addListener(fn) { window.__harnessMessage = fn; },
+          },
+          sendMessage(message, callback) {
+            if (message.type === 'ENSURE_BIRTHDAY') {
+              const stored = read();
+              const patch = PetBirthday.initialValues(stored);
+              window.chrome.storage.local.set(patch, () => {
+                setTimeout(() => callback && callback({ ...stored, ...patch }), 0);
+              });
+              return;
+            }
+            if (message.type === 'PET_PRESENCE_QUERY') {
+              setTimeout(() => callback && callback({ present: true }), 0);
+              return;
+            }
             // 프로브가 아직 초기화되기 전일 수 있다
             if (window.__harnessLog) window.__harnessLog('msg', JSON.stringify(message));
           },
@@ -253,6 +268,7 @@
 
   <script src="pets.js"></script>
   <script src="pets-pixel.js"></script>
+  <script src="birthday.js"></script>
   <script src="content.js"></script>
 
   <script>

@@ -65,6 +65,133 @@
   pointer-events: none;
 }
 
+/* Birthday accessories share the pet's SVG coordinates and head animations. */
+#screen-pet.at-home.birthday-today {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+#screen-pet .birthday-hat,
+#screen-pet .birthday-scene {
+  pointer-events: none;
+}
+
+#screen-pet .birthday-scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 140px;
+  height: 80px;
+  z-index: 2;
+}
+
+#screen-pet .birthday-cake {
+  transform-origin: 112px 75px;
+  animation: birthday-cake-arrive 3s ease-out both;
+}
+
+#screen-pet .birthday-breath {
+  opacity: 0;
+  animation: birthday-blow 3s ease-in-out both;
+}
+
+#screen-pet .birthday-flame {
+  transform-origin: 112px 36px;
+  animation: birthday-candle-out 3s ease-in-out both;
+}
+
+#screen-pet .birthday-smoke {
+  opacity: 0;
+  animation: birthday-smoke-rise 3s ease-out both;
+}
+
+/* Pixel accessories move by whole grid cells instead of scaling/skewing blocks. */
+#screen-pet[data-theme="pixel"] .birthday-cake {
+  animation-name: birthday-cake-arrive-pixel;
+  animation-timing-function: steps(2, end);
+}
+
+#screen-pet[data-theme="pixel"] .birthday-breath {
+  animation-name: birthday-blow-pixel;
+  animation-timing-function: steps(2, end);
+}
+
+#screen-pet[data-theme="pixel"] .birthday-flame {
+  animation-name: birthday-candle-out-pixel;
+  animation-timing-function: steps(1, end);
+}
+
+#screen-pet[data-theme="pixel"] .birthday-smoke {
+  animation-name: birthday-smoke-rise-pixel;
+  animation-timing-function: steps(4, end);
+}
+
+@keyframes birthday-cake-arrive-pixel {
+  0% { opacity: 0; transform: translateY(8px); }
+  15%, 90% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(4px); }
+}
+
+@keyframes birthday-blow-pixel {
+  0%, 33%, 68%, 100% { opacity: 0; transform: translateX(-4px); }
+  42%, 58% { opacity: 1; transform: none; }
+}
+
+@keyframes birthday-candle-out-pixel {
+  0%, 43% { opacity: 1; transform: none; }
+  55%, 100% { opacity: 0; transform: none; }
+}
+
+@keyframes birthday-smoke-rise-pixel {
+  0%, 54% { opacity: 0; transform: none; }
+  65% { opacity: 0.8; }
+  95%, 100% { opacity: 0; transform: translateY(-8px); }
+}
+
+#screen-pet[data-state="birthday"] .pet-head {
+  transform-origin: 55px 44px;
+  animation: birthday-head-blow 3s ease-in-out both;
+}
+
+#screen-pet[data-state="birthday"] .pet-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: birthday-eyes-squeeze 3s ease-in-out both;
+}
+
+@keyframes birthday-cake-arrive {
+  0% { opacity: 0; transform: translateY(10px) scale(0.8); }
+  15%, 90% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(4px); }
+}
+
+@keyframes birthday-blow {
+  0%, 33%, 68%, 100% { opacity: 0; transform: translateX(-3px); }
+  42%, 58% { opacity: 1; transform: translateX(2px); }
+}
+
+@keyframes birthday-candle-out {
+  0%, 36% { opacity: 1; transform: none; }
+  43% { opacity: 1; transform: skewX(25deg) scaleY(0.8); }
+  55%, 100% { opacity: 0; transform: scale(0); }
+}
+
+@keyframes birthday-smoke-rise {
+  0%, 54% { opacity: 0; transform: translateY(3px); }
+  65% { opacity: 0.8; }
+  95%, 100% { opacity: 0; transform: translateY(-9px); }
+}
+
+@keyframes birthday-head-blow {
+  0%, 20%, 80%, 100% { transform: none; }
+  40%, 60% { transform: translateX(4px) rotate(7deg); }
+}
+
+@keyframes birthday-eyes-squeeze {
+  0%, 24%, 76%, 100% { transform: none; }
+  40%, 60% { transform: scaleY(0.35); }
+}
+
 #screen-pet.at-home .pet-inner {
   /* 방석 크기에 맞춰 원본 사이즈(1.0) 유지 */
   transform: scaleX(var(--facing)) scale(1.0);

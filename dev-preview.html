@@ -145,6 +145,17 @@
       overflow: hidden;
     }
 
+    /* Reserve headroom for the dino's hat and space in front for the cake. */
+    .tile.birthday-preview {
+      width: calc(152px * var(--zoom));
+      height: calc(112px * var(--zoom));
+    }
+
+    .tile.birthday-preview .stage {
+      margin-top: calc(28px * var(--zoom));
+      margin-left: calc(6px * var(--zoom));
+    }
+
     .tile.house {
       width: calc(100px * var(--zoom));
       height: calc(100px * var(--zoom));
@@ -199,6 +210,16 @@
     <div class="group" id="bgGroup"><label>bg</label></div>
   </div>
 
+  <div class="controls">
+    <div class="group">
+      <label for="birthdayToggle">생일</label>
+      <button id="birthdayToggle" type="button" aria-pressed="false">모자 켜기</button>
+      <button id="birthdayPlay" type="button">🎂 초 불기 (3초)</button>
+      <span id="birthdayPreviewStatus" role="status" aria-live="polite"></span>
+    </div>
+  </div>
+  <p class="sub">생일 모자를 켜면 모든 펫에 적용됩니다. 펫을 누르거나 ‘초 불기’를 눌러 일반/도트 애니메이션을 비교하세요.</p>
+
   <table id="board"></table>
 
   <h2 id="variantTitle">갈색 말티즈 얼굴 시안</h2>
@@ -207,6 +228,7 @@
 
   <script src="pets.js"></script>
   <script src="pets-pixel.js"></script>
+  <script src="birthday.js"></script>
   <script>
     (function () {
       const STATES = ['idle', 'sitting', 'walking', 'running', 'jumping', 'dancing', 'sleeping'];
@@ -325,8 +347,66 @@
           </div>`;
       }).join('');
 
-      buildGroup('stateGroup', STATES, 'idle', (state) => {
+      let selectedState = 'idle';
+      let birthdayEnabled = false;
+      const celebrationTimers = new Map();
+      const birthdayToggle = document.getElementById('birthdayToggle');
+      const birthdayPreviewStatus = document.getElementById('birthdayPreviewStatus');
+
+      function stopCelebration(el) {
+        clearTimeout(celebrationTimers.get(el));
+        celebrationTimers.delete(el);
+        const scene = el.querySelector('.birthday-scene');
+        if (scene) scene.remove();
+        el.classList.remove('birthday-celebrating');
+        el.dataset.state = selectedState;
+        if (!celebrationTimers.size) birthdayPreviewStatus.textContent = '';
+      }
+
+      function setBirthdayPreview(enabled) {
+        birthdayEnabled = enabled;
+        birthdayToggle.setAttribute('aria-pressed', String(enabled));
+        birthdayToggle.classList.toggle('on', enabled);
+        birthdayToggle.textContent = enabled ? '모자 끄기' : '모자 켜기';
         document.querySelectorAll('.stage #screen-pet').forEach((el) => {
+          stopCelebration(el);
+          el.closest('.tile').classList.toggle('birthday-preview', enabled);
+          el.classList.toggle('birthday-today', enabled);
+          const hat = el.querySelector('.birthday-hat');
+          if (hat) hat.remove();
+          if (enabled) el.querySelector('.pet-head').insertAdjacentHTML('beforeend', PetBirthday.hatMarkup(el.dataset.pet, el.dataset.theme));
+        });
+      }
+
+      function playBirthday(el) {
+        if (celebrationTimers.has(el)) return;
+        el.dataset.state = 'birthday';
+        el.classList.add('birthday-celebrating');
+        const scene = document.createElement('div');
+        scene.className = 'birthday-scene';
+        scene.setAttribute('aria-hidden', 'true');
+        scene.innerHTML = PetBirthday.cakeMarkup(el.dataset.theme);
+        el.querySelector('.pet-inner').appendChild(scene);
+        celebrationTimers.set(el, setTimeout(() => stopCelebration(el), 3000));
+        birthdayPreviewStatus.textContent = '초를 불고 있어요…';
+      }
+
+      birthdayToggle.addEventListener('click', () => setBirthdayPreview(!birthdayEnabled));
+      document.getElementById('birthdayPlay').addEventListener('click', () => {
+        if (!birthdayEnabled) setBirthdayPreview(true);
+        document.querySelectorAll('.stage #screen-pet').forEach(playBirthday);
+      });
+      document.querySelectorAll('.stage #screen-pet').forEach((el) => {
+        el.addEventListener('click', () => {
+          if (!birthdayEnabled) setBirthdayPreview(true);
+          playBirthday(el);
+        });
+      });
+
+      buildGroup('stateGroup', STATES, 'idle', (state) => {
+        selectedState = state;
+        document.querySelectorAll('.stage #screen-pet').forEach((el) => {
+          stopCelebration(el);
           el.dataset.state = state;
         });
       });

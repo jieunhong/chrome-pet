@@ -19,7 +19,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["pets.js", "pets-pixel.js", "content.js"],
+      "js": ["pets.js", "pets-pixel.js", "birthday.js", "content.js"],
       "css": ["styles.css"],
       "run_at": "document_idle"
     }

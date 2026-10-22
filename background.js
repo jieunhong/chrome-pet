@@ -5,12 +5,36 @@
  *   탭/창 포커스가 바뀔 때마다 모든 탭에 presence 를 뿌린다.
  */
 
+importScripts('birthday.js');
+
+// Only the service worker initializes dates, including upgrades from older versions.
+let birthdayInitialization;
+function ensureBirthday() {
+  if (!birthdayInitialization) {
+    birthdayInitialization = new Promise((resolve, reject) => {
+      chrome.storage.local.get(['installedOn', 'petBirthday'], (stored) => {
+        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+        const patch = PetBirthday.initialValues(stored);
+        if (!Object.keys(patch).length) return resolve(stored);
+        chrome.storage.local.set(patch, () => {
+          if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+          resolve({ ...stored, ...patch });
+        });
+      });
+    }).finally(() => { birthdayInitialization = null; });
+  }
+  return birthdayInitialization;
+}
+
+chrome.runtime.onInstalled.addListener(() => { ensureBirthday().catch(console.error); });
+chrome.runtime.onStartup.addListener(() => { ensureBirthday().catch(console.error); });
+
 function openPopupWindow() {
   chrome.windows.create({
     url: chrome.runtime.getURL('popup.html'),
     type: 'popup',
     width: 300,
-    height: 470,
+    height: 640,
   });
 }
 
@@ -55,6 +79,11 @@ chrome.windows.onRemoved.addListener(broadcastPresence);
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message) return undefined;
+
+  if (message.type === 'ENSURE_BIRTHDAY') {
+    ensureBirthday().then(sendResponse, () => sendResponse({ error: 'Birthday could not be loaded.' }));
+    return true;
+  }
 
   if (message.type === 'OPEN_POPUP') {
     // openPopup 은 Chrome 127 부터다. 없거나 거부되면 작은 창으로 대신 띄운다.

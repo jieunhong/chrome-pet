@@ -129,6 +129,7 @@
       transform: scale(1);
     }
 
+    .birthday-section,
     .name-section,
     .house-section {
       margin-top: 16px;
@@ -139,6 +140,7 @@
       gap: 8px;
     }
 
+    .birthday-section label,
     .name-section label,
     .house-section label {
       font-size: 11px;
@@ -157,7 +159,9 @@
       gap: 6px;
     }
 
+    #petBirthdayInput,
     #petNameInput {
+      min-width: 0;
       flex: 1;
       padding: 8px 12px;
       border: 2px solid #e8c89a;
@@ -168,10 +172,12 @@
       transition: border-color 0.2s;
     }
 
+    #petBirthdayInput:focus,
     #petNameInput:focus {
       border-color: #e8936c;
     }
 
+    #saveBirthdayBtn,
     #saveNameBtn {
       padding: 0 12px;
       background: #e8936c;
@@ -184,6 +190,7 @@
       transition: background 0.2s;
     }
 
+    #saveBirthdayBtn:hover,
     #saveNameBtn:hover {
       background: #d87e56;
     }
@@ -241,12 +248,22 @@
     </div>
   </div>
 
+  <div class="birthday-section">
+    <label for="petBirthdayInput">Pet Birthday</label>
+    <div class="name-input-group">
+      <input type="date" id="petBirthdayInput" min="0001-01-01" max="9999-12-31" required aria-describedby="birthdayStatus" disabled>
+      <button id="saveBirthdayBtn" disabled>Save</button>
+    </div>
+    <p class="hint" id="birthdayStatus" role="status" aria-live="polite">Loading birthday…</p>
+  </div>
+
   <p class="hint">Changes apply to all tabs instantly</p>
 
   <a class="donate" id="donate" target="_blank" rel="noopener">☕ Buy me a coffee</a>
 
   <script src="pets.js"></script>
   <script src="pets-pixel.js"></script>
+  <script src="birthday.js"></script>
   <script src="popup.js"></script>
 </body>
 

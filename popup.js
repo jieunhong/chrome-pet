@@ -131,6 +131,47 @@
     if (e.key === 'Enter') savePetName();
   });
 
+  const birthdayInput = document.getElementById('petBirthdayInput');
+  const saveBirthdayBtn = document.getElementById('saveBirthdayBtn');
+  const birthdayStatus = document.getElementById('birthdayStatus');
+
+  function saveBirthday() {
+    const birthday = birthdayInput.value;
+    if (!PetBirthday.isValidDate(birthday) || !birthdayInput.checkValidity()) {
+      birthdayStatus.textContent = 'Choose a valid birthday.';
+      birthdayInput.reportValidity();
+      return;
+    }
+    saveBirthdayBtn.disabled = true;
+    chrome.storage.local.set({ petBirthday: birthday }, () => {
+      saveBirthdayBtn.disabled = false;
+      birthdayStatus.textContent = chrome.runtime.lastError
+        ? 'Could not save. Please try again.' : 'Birthday saved! 🎂';
+      if (!chrome.runtime.lastError) {
+        chrome.tabs.query({}, (tabs) => {
+          tabs.forEach((tab) => {
+            if (tab.id) chrome.tabs.sendMessage(tab.id, { type: 'CHANGE_BIRTHDAY', birthday }).catch(() => {});
+          });
+        });
+      }
+    });
+  }
+
+  saveBirthdayBtn.addEventListener('click', saveBirthday);
+  birthdayInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !saveBirthdayBtn.disabled) saveBirthday();
+  });
+  chrome.runtime.sendMessage({ type: 'ENSURE_BIRTHDAY' }, (result) => {
+    if (chrome.runtime.lastError || !result || result.error) {
+      birthdayStatus.textContent = 'Could not load birthday. Reopen settings to retry.';
+      return;
+    }
+    birthdayInput.value = result.petBirthday;
+    birthdayInput.disabled = false;
+    saveBirthdayBtn.disabled = false;
+    birthdayStatus.textContent = 'Defaults to installation day. Celebrate every year!';
+  });
+
   // 저장된 값 불러와서 초기 렌더
   if (chrome && chrome.storage && chrome.storage.local) {
     chrome.storage.local.get(['pet', 'petName', 'theme', 'houseStyle'], (result) => {

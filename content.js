@@ -10,6 +10,15 @@
   let currentPet = window.DEFAULT_PET || 'cat';
   let currentTheme = window.DEFAULT_THEME || 'normal';
   let currentName = '';
+  let currentBirthday = '';
+  let birthdayToday = false;
+  let birthdayTimer = 0;
+  let birthdayClockTimer = 0;
+  let birthdayCake = null;
+  let birthdayPressAtHome = false;
+  let petDragMoved = false;
+  let petDragStartX = 0;
+  let petDragStartY = 0;
   let x = window.innerWidth - PET_W - 40;
   let y = window.innerHeight - PET_H - 10;
   let vx = 0;
@@ -96,10 +105,85 @@
 
   // innerHTML 을 갈아끼우면 말풍선 노드도 새로 생기므로 참조를 매번 다시 잡는다
   function renderPet() {
+    stopBirthdayCelebration();
     pet.dataset.pet = currentPet;
     pet.dataset.theme = currentTheme;
     pet.innerHTML = buildPetHTML(currentPet, currentName);
     thought = pet.querySelector('.pet-thought');
+    renderBirthdayHat();
+  }
+
+  function renderBirthdayHat() {
+    pet.classList.toggle('birthday-today', birthdayToday);
+    const existing = pet.querySelector('.birthday-hat');
+    if (existing) existing.remove();
+    if (!birthdayToday) return;
+    const head = pet.querySelector('.pet-head');
+    if (!head) return;
+    head.insertAdjacentHTML('beforeend', PetBirthday.hatMarkup(currentPet, currentTheme));
+  }
+
+  function refreshBirthday() {
+    const next = PetBirthday.isBirthday(currentBirthday);
+    if (birthdayToday !== next) {
+      birthdayToday = next;
+      if (!next) stopBirthdayCelebration();
+      renderBirthdayHat();
+    }
+    clearTimeout(birthdayClockTimer);
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    // Midnight precision plus periodic checks for system clock/time-zone changes.
+    birthdayClockTimer = setTimeout(refreshBirthday, Math.min(30000, midnight - now + 20));
+  }
+
+  function setBirthday(value) {
+    currentBirthday = PetBirthday.isValidDate(value) ? value : '';
+    refreshBirthday();
+  }
+
+  function stopBirthdayCelebration() {
+    clearTimeout(birthdayTimer);
+    birthdayTimer = 0;
+    if (birthdayCake) birthdayCake.remove();
+    birthdayCake = null;
+    pet.classList.remove('birthday-celebrating');
+    if (state === 'birthday') {
+      state = isAtHome ? 'sleeping' : 'idle';
+      stateTimer = isAtHome ? Number.POSITIVE_INFINITY : 90;
+      pet.dataset.state = state;
+      vx = 0;
+      vy = 0;
+    }
+  }
+
+  function startBirthdayCelebration() {
+    refreshBirthday();
+    if (!birthdayToday || birthdayTimer || removedFromPage || !presentOnTab || isDevToolsOpen || document.hidden) return;
+    removeToy();
+    removeTeaser();
+    removeFood();
+    playMode = null;
+    document.querySelectorAll('.zzz-particle').forEach((el) => el.remove());
+    if (thought) thought.classList.remove('show');
+    pet.classList.remove('petting');
+    vx = 0;
+    vy = 0;
+    if (!isAtHome) y = groundY();
+    // Face into the available space so cake and candle remain in the viewport.
+    facing = x + PET_W + 60 < window.innerWidth ? 1 : -1;
+    state = 'birthday';
+    stateTimer = Number.POSITIVE_INFINITY;
+    pet.dataset.state = state;
+    pet.style.setProperty('--facing', facing);
+    pet.dataset.facing = facing;
+    birthdayCake = document.createElement('div');
+    birthdayCake.className = 'birthday-scene';
+    birthdayCake.setAttribute('aria-hidden', 'true');
+    birthdayCake.innerHTML = PetBirthday.cakeMarkup(currentTheme);
+    pet.querySelector('.pet-inner').appendChild(birthdayCake);
+    pet.classList.add('birthday-celebrating');
+    birthdayTimer = setTimeout(stopBirthdayCelebration, 3000);
   }
 
   renderPet();
@@ -171,6 +255,7 @@
 
   function setAtHome(value) {
     if (isAtHome === !!value) return; // storage 에코로 두 번 불려도 상태를 다시 밟지 않는다
+    stopBirthdayCelebration();
     isAtHome = !!value;
     if (isAtHome) {
       pet.classList.add('at-home');
@@ -208,7 +293,8 @@
 
   // storage 에서 펫 타입 및 이름 읽어오기 및 리스너 등록
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['pet', 'petName', 'atHome', 'cushionX', 'theme', 'houseStyle', 'petWeight'], (result) => {
+    chrome.storage.local.get(['pet', 'petName', 'atHome', 'cushionX', 'theme', 'houseStyle', 'petWeight', 'petBirthday'], (result) => {
+      if (result.petBirthday) setBirthday(result.petBirthday);
       if (typeof result.cushionX === 'number') {
         cushionX = result.cushionX;
         applyCushionPosition();
@@ -238,6 +324,7 @@
     // 팝업에서 storage 변경 시 실시간 반영
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local') {
+        if (changes.petBirthday) setBirthday(changes.petBirthday.newValue);
         if (changes.cushionX) {
           cushionX = changes.cushionX.newValue;
           applyCushionPosition();
@@ -267,6 +354,8 @@
         setTheme(message.theme);
       } else if (message.type === 'CHANGE_HOUSE' && message.house) {
         setHouseStyle(message.house);
+      } else if (message.type === 'CHANGE_BIRTHDAY') {
+        setBirthday(message.birthday);
       } else if (message.type === 'PET_PRESENCE') {
         setPresence(!!message.present);
       }
@@ -275,6 +364,10 @@
     // 시작 시 background 에게 "이 탭이 펫이 있어야 하는 탭인지" 물어본다.
     // 확장이 리로드되면 고아가 된 content script 의 sendMessage 가 동기로 던지므로 감싼다.
     try {
+      chrome.runtime.sendMessage({ type: 'ENSURE_BIRTHDAY' }, (res) => {
+        if (chrome.runtime.lastError) return;
+        if (res && res.petBirthday) setBirthday(res.petBirthday);
+      });
       chrome.runtime.sendMessage({ type: 'PET_PRESENCE_QUERY' }, (res) => {
         if (chrome.runtime.lastError) return;
         if (res && typeof res.present === 'boolean') setPresence(res.present);
@@ -363,6 +456,7 @@
   }
 
   function showThought(text) {
+    if (birthdayTimer) return;
     if (!thought) return;
     thought.textContent = text || getThoughts('idle');
     thought.classList.add('show');
@@ -437,6 +531,7 @@
   }
 
   function startPlay(fromX, fromY) {
+    stopBirthdayCelebration();
     removeToy();
     removeTeaser();
     removeFood();
@@ -520,6 +615,7 @@
 
   // ============ 먹이 주기 ============
   function startFeed() {
+    stopBirthdayCelebration();
     removeToy();
     removeTeaser();
     removeFood();
@@ -542,6 +638,8 @@
 
   // ============ 탭 간 단일 등장 (presence) ============
   function clearFloaties() {
+    stopBirthdayCelebration();
+    birthdayPressAtHome = false;
     document.querySelectorAll('.zzz-particle, .heart-particle').forEach((el) => el.remove());
     removeToy();
     removeTeaser();
@@ -550,6 +648,7 @@
   }
 
   function setPresence(present) {
+    refreshBirthday();
     if (presentOnTab === present) return;
     presentOnTab = present;
     pet.classList.toggle('away', !present);
@@ -582,6 +681,7 @@
     }
 
     if (isDragging) {
+      if (Math.hypot(e.clientX - petDragStartX, e.clientY - petDragStartY) > 4) petDragMoved = true;
       x = e.clientX - dragOffsetX;
       y = e.clientY - dragOffsetY;
       vx = 0;
@@ -600,8 +700,19 @@
   }, { passive: true });
 
   pet.addEventListener('mousedown', (e) => {
-    if (isAtHome) return;
     if (e.button !== 0) return;
+    refreshBirthday();
+    if (birthdayTimer) { e.preventDefault(); return; }
+    if (isAtHome && !birthdayToday) return;
+    petDragMoved = false;
+    petDragStartX = e.clientX;
+    petDragStartY = e.clientY;
+    if (isAtHome) {
+      birthdayPressAtHome = true;
+      mouseDownTime = Date.now();
+      e.preventDefault();
+      return;
+    }
     isDragging = true;
     mouseDownTime = Date.now();
     dragOffsetX = e.clientX - x;
@@ -666,12 +777,17 @@
   });
 
   document.addEventListener('mouseup', (e) => {
+    if (birthdayPressAtHome) {
+      birthdayPressAtHome = false;
+      if (Date.now() - mouseDownTime < 500 && Math.hypot(e.clientX - petDragStartX, e.clientY - petDragStartY) <= 4) startBirthdayCelebration();
+      return;
+    }
     if (isDragging) {
       const duration = Date.now() - mouseDownTime;
       isDragging = false;
       pet.classList.remove('dragging');
 
-      if (duration < 200) {
+      if (duration < (birthdayToday ? 500 : 200) && !petDragMoved && Math.hypot(e.clientX - petDragStartX, e.clientY - petDragStartY) <= 4) {
         // 짧은 클릭 인터랙션
         handlePetClick(e.clientX, e.clientY);
       } else {
@@ -682,6 +798,11 @@
   });
 
   function handlePetClick(cx, cy) {
+    refreshBirthday();
+    if (birthdayToday) {
+      startBirthdayCelebration();
+      return;
+    }
     clickCount++;
     const now = Date.now();
     if (now - lastClickTime > 1000) clickCount = 1;
@@ -716,7 +837,12 @@
   }
 
   // 더블클릭: 반가워하며 점프
+  pet.addEventListener('click', (e) => {
+    if (birthdayToday) { e.preventDefault(); e.stopPropagation(); }
+  });
+
   pet.addEventListener('dblclick', (e) => {
+    if (birthdayToday) { e.preventDefault(); e.stopPropagation(); return; }
     if (isAtHome) return;
     state = 'dancing';
     stateTimer = 120;
@@ -888,6 +1014,14 @@
     rafId = 0;
     // 개발자도구가 열려 있거나, 이 페이지에서 치웠거나, 다른 탭/창에 펫이 있으면 루프를 멈춘다
     if (isDevToolsOpen || removedFromPage || !presentOnTab) return;
+
+    if (state === 'birthday') {
+      if (isAtHome) { x = petHomeX(); y = petHomeY(); }
+      pet.style.setProperty('--x', `${x}px`);
+      pet.style.setProperty('--y', `${y}px`);
+      scheduleUpdate();
+      return;
+    }
 
     stateTimer--;
     frameCount++;
@@ -1200,4 +1334,15 @@
   });
 
   setTimeout(() => showThought(getGreeting()), 500);
+  refreshBirthday();
+  document.addEventListener('visibilitychange', () => {
+    refreshBirthday();
+    if (document.hidden) stopBirthdayCelebration();
+  });
+  window.addEventListener('focus', refreshBirthday);
+  window.addEventListener('pageshow', refreshBirthday);
+  window.addEventListener('pagehide', () => {
+    stopBirthdayCelebration();
+    clearTimeout(birthdayClockTimer);
+  });
 })();
